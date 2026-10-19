@@ -24,6 +24,13 @@ Chaque carte du menu propose aussi un **tutoriel guidé** (caméra, barre de con
 
 Les **synergies sont optionnelles** dans les deux modes : une tuile ★★ ou plus avec ses synergies (tuiles du même thème à portée, route à 2 cases) gagne +25 % de gain et d'habitants, sinon elle se pose quand même.
 
+## Économie du mode Classique (inspirée du GDD)
+- Les commerces rapportent à la pose à peine plus que leur prix (Départ +10 %, ★ +5 %) et moins que leur prix dès ★★ (−5 % à −15 %). Leur vrai gain vient des productions (gros bonus d'argent aux commerces et loisirs posés ensuite à leur portée) et, plus légèrement, des habitations. Les bonus ne sont jamais rétroactifs.
+- Plafond d'argent : uniquement les commerces (et la base). Plafond d'habitants : uniquement les habitations.
+- Le prestige des loisirs mesure la variété : nombre d'assets différents posés (0 / 20 / 50 / 100 / 200 pour +0 / +50 / +100 / +150 / +200 %).
+- Aucun coût progressif. Destruction : 75 % remboursés. Ctrl+Z annule la dernière action avec 100 % remboursé.
+- Packs par catégorie au prix uniforme de 5 votes pour 2 stickers : Habitations 4 (10 votes), Loisirs 4 (10), Routes 6 (15), Commerces, Productions et Services 2 (5).
+
 ## Valeurs
 Toutes les valeurs sont des entiers : prix et gains multiples de 5, habitants entiers, pourcentages entiers. Les bonus et malus en pourcentage s'additionnent ou se soustraient entre eux (le prestige des Loisirs va de +0 % à +200 %), jamais de multiplication entre eux.
 

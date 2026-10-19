@@ -60,7 +60,7 @@ let hudKey = '';
 function refreshHUD() {
   const p = pop();
   $('#h-cap').textContent = '/ ' + fmt(tot.capM); $('#h-inc').textContent = S.lastGain ? 'dernière pose +' + fmt(S.lastGain) + ' $' : 'gagné à chaque pose';
-  $('#h-popcap').textContent = '/ ' + fmt(tot.capH); $('#h-pres').textContent = `${prestige.n} +${prestige.p} %`; $('#st-pop .sub span:first-child').textContent = citRatio > 1 ? `Habitants · 1 pavé = ${citRatio}` : 'Habitants';
+  $('#h-popcap').textContent = '/ ' + fmt(tot.capH); $('#h-pres').textContent = `${prestige.n} +${prestige.p} % · ${variety} assets`; $('#st-pop .sub span:first-child').textContent = citRatio > 1 ? `Habitants · 1 pavé = ${citRatio}` : 'Habitants';
   $('#h-albumt').textContent = '/ ' + TOTAL;
   $('#h-moneybar').style.width = clamp(S.money / tot.capM * 100, 0, 100) + '%'; $('#h-popbar').style.width = clamp(p / tot.capH * 100, 0, 100) + '%';
   document.body.classList.toggle('destroy', S.destroy);
@@ -289,14 +289,14 @@ function renderAlbum(body) {
 }
 
 function renderPacks(body) {
-  const w = el('div', 'packs'), price = packPrice();
-  w.appendChild(el('div', 'pk-intro', `<p>${isSimple() ? 'Les <b>points de vote</b> se gagnent uniquement en <b>aidant les habitants spéciaux</b> (2 à 3 packs selon la précision de votre aide). ' : 'Chaque habitant donne <b>1 point de vote</b> la première fois qu\'il s\'installe. '}Un pack contient <b>5 stickers d'une catégorie</b> que vous n'avez pas encore : jamais de doublon. Les stickers ★★★★ sont les plus rares.</p><p class="votes"><span class="ico">${IC.vote}</span><b id="m-votes">${fmt(S.votes)}</b> points de vote</p>`));
+  const w = el('div', 'packs');
+  w.appendChild(el('div', 'pk-intro', `<p>${isSimple() ? 'Les <b>points de vote</b> se gagnent uniquement en <b>aidant les habitants spéciaux</b> (2 à 3 packs selon la précision de votre aide). ' : 'Chaque habitant donne <b>1 point de vote</b> la première fois qu\'il s\'installe. '}Un pack contient des stickers <b>d'une catégorie</b> que vous n'avez pas encore : jamais de doublon. ${isSimple() ? '' : 'Le prix est uniforme : <b>5 votes pour 2 stickers</b>. '}Les stickers ★★★★ sont les plus rares.</p><p class="votes"><span class="ico">${IC.vote}</span><b id="m-votes">${fmt(S.votes)}</b> points de vote</p>`));
   const CD = ['Maisons, villas, immeubles, gratte-ciels', 'Boutiques, restaurants, stands', 'Plages, parcs, sport, attractions', 'Fermes, usines, chantiers, énergie', 'Écoles, hôpitaux, institutions', 'Routes, rails, ponts, véhicules, décor'];
   D.cats.forEach((name, c) => {
-    const left = T.filter(t => !t.ult && t.cat === c && !S.owned.has(t.id)).length, tot_ = T.filter(t => !t.ult && t.cat === c).length;
+    const { n: pn, price } = packInfo(c), left = T.filter(t => !t.ult && t.cat === c && !S.owned.has(t.id)).length, tot_ = T.filter(t => !t.ult && t.cat === c).length;
     const k = el('div', 'pack'); k.style.setProperty('--pc', CATC[c]);
     k.innerHTML = `<div class="art"><i></i><i></i><i></i><b>${esc(name)}</b></div><h3>Pack ${esc(name)}</h3><p>${CD[c]}.</p><div class="bar"><i style="width:${(tot_ - left) / tot_ * 100}%"></i></div><small>${tot_ - left} / ${tot_} obtenus</small>`;
-    const b = el('button', 'packbtn', left ? `Ouvrir · ${price} votes` : 'Catégorie complète'); b.dataset.price = left ? price : 99999; b.disabled = !left || S.votes < price;
+    const b = el('button', 'packbtn', left ? `Ouvrir · ${pn} stickers · ${price} votes` : 'Catégorie complète'); b.dataset.price = left ? price : 99999; b.disabled = !left || S.votes < price;
     b.onclick = () => {
       if (S.votes < price) { toast('Pas assez de votes.', 'bad'); return; }
       k.classList.add('shake'); sfx('click'); b.disabled = true;
@@ -369,29 +369,34 @@ const SIMPLE_RULES = `
 <li>Les thèmes encouragent à construire des ensembles cohérents et à trouver de meilleures solutions aux demandes des habitants.</li></ul>`;
 const CLASSIC_RULES = `
 <h4>Boucle principale</h4>
-<ul><li>Placer des tuiles génère de l'argent (à la pose) et des habitants. Chaque habitant donne 1 point de vote pour ouvrir des packs de stickers (par catégorie, sans doublons) qui débloquent de nouvelles tuiles.</li></ul>
+<ul><li>Construire, attirer des habitants, gagner des votes, ouvrir des packs de stickers, débloquer de nouvelles tuiles, construire mieux.</li>
+<li>Aucun revenu passif : argent et habitants ne viennent qu'à la pose d'une tuile. Tout est payé et encaissé tout de suite.</li></ul>
 <p class="goal">Objectif : compléter l'Album et placer la tuile ultime.</p>
-<h4>Effets et portées</h4>
-<ul><li><b>Habitations</b> : habitants, capacité de population, boost d'argent des commerces voisins. Elles ne rapportent pas d'argent seules.</li>
-<li><b>Commerces</b> : gros gain à la pose, plafond d'argent, quelques habitants.</li>
-<li><b>Loisirs</b> : gain et habitants augmentés par le prestige (Hameau +0 % à Métropole +200 %). Tous les bonus et malus s'additionnent entre eux.</li>
-<li><b>Productions</b> : boost d'argent des commerces et loisirs, malus d'habitants sur les habitations proches.</li>
-<li><b>Services</b> : boost d'habitants, malus d'argent des loisirs proches.</li>
+<h4>Économie</h4>
+<ul><li><b>Commerces</b> : ils rapportent à la pose <b>à peine plus que leur prix</b> (Départ et ★), et <b>moins que leur prix</b> dès ★★. Leur vrai gain vient des boosts : <b>les productions</b> (gros bonus d'argent à leur portée) et les habitations (petit bonus). Ils font monter le plafond d'argent.</li>
+<li><b>Productions</b> : elles rapportent peu, mais boostent l'argent des commerces et loisirs posés ensuite à leur portée. En contrepartie, un léger malus d'habitants sur les habitations posées ensuite.</li>
+<li><b>Habitations</b> : habitants, plafond de population, petit boost d'argent des commerces posés ensuite à leur portée. Elles ne rapportent pas d'argent seules.</li>
+<li><b>Services</b> : boost d'habitants des habitations et loisirs posés ensuite, léger malus d'argent des loisirs.</li>
+<li><b>Loisirs</b> : coûteux, argent et habitants à la pose augmentés par le prestige de la ville (variété : nombre d'assets différents posés). Hameau 0 à 19 : +0 %, Village 20 : +50 %, Bourg 50 : +100 %, Ville 100 : +150 %, Métropole 200 : +200 %.</li>
 <li><b>Routes</b> : petit boost de réseau.</li>
-<li><b>Portée</b> : Départ 1 case, ★ 2, ★★ 3, ★★★ 4, ★★★★ toute la carte. <b>Synergies (optionnelles)</b> : une tuile ★★ ou plus qui a des tuiles du même thème à portée (et une route à 2 cases) gagne +25 % de gain et d'habitants, sinon elle se pose quand même. <b>Adjacence</b> : +8 % par voisine du même thème.</li></ul>
+<li>Les bonus et malus s'additionnent, ne s'appliquent qu'aux poses futures, et le coût d'une tuile ne change jamais en cours de partie.</li>
+<li><b>Portée</b> : Départ 1 case, ★ 2, ★★ 3, ★★★ 4, ★★★★ toute la carte. <b>Synergies (optionnelles)</b> : +25 % si réunies. <b>Adjacence</b> : +8 % par voisine du même thème.</li>
+<li><b>Destruction</b> : 75 % du prix remboursé, sans gain ni habitants. <kbd>Ctrl</kbd>+<kbd>Z</kbd> annule la dernière action avec 100 % remboursé.</li></ul>
+<h4>Packs</h4>
+<ul><li>Chaque habitant donne 1 point de vote. Les packs sont par catégorie, au prix uniforme de 5 votes pour 2 stickers : Habitations 4 stickers (10 votes), Loisirs 4 (10), Routes 6 (15), Commerces, Productions et Services 2 (5).</li></ul>
 <h4>Anti-thèmes et dissonances</h4>
 <ul><li>Certains thèmes, sous-catégories et catégories se gênent entre eux. Poser une tuile à moins de 3 cases d'une tuile qui la dérange provoque une <b>dissonance</b> sur son gain et ses habitants : <b>tuile exacte</b> −40 %, <b>thème</b> −25 %, <b>sous-catégorie</b> −14 %, <b>catégorie</b> −7 %.</li>
 <li>Un habitant spécial peut détester une tuile exacte, un thème, une sous-catégorie ou une catégorie : le malus est d'autant plus fort que c'est précis.</li></ul>
 <h4>Habitants spéciaux et thèmes</h4>
-<ul><li>Un habitant spécial arrive environ toutes les 5 minutes avec une demande (sous-catégorie, thème ou tuile exacte, plus la précision est bonne plus la récompense est grande). Dès qu'il s'installe, son bonus temporaire s'active tout seul (un clic le réactive plus tard). Les anti-thèmes provoquent un malus.</li>
+<ul><li>Un habitant spécial arrive environ toutes les 5 minutes avec une demande (sous-catégorie, thème ou tuile exacte, plus la précision est bonne plus la récompense est grande). Dès qu'il s'installe, son bonus temporaire s'active tout seul (un clic le réactive plus tard).</li>
 <li>Compléter un thème offre un bonus permanent : Attractivité, Rendement, Popularité, Économie ou Portée.</li></ul>`;
 function renderHelp(body) {
   const w = el('div', 'help'), sm = isSimple();
   w.innerHTML = `
   <div class="hcol"><h3>Commandes</h3>
   <dl><dt><kbd>Espace</kbd></dt><dd>Barre de construction (tuiles, filtres, recherche)</dd><dt><kbd>Échap</kbd></dt><dd>Menu (Album, ${sm ? '' : 'Packs, '}Habitants, Aide), ouvre et ferme</dd><dt>Clic gauche</dt><dd>Construire (maintenir pour tracer une ligne)</dd><dt>Clic droit + glisser</dt><dd>Se déplacer sur la carte</dd>
-  <dt>Clic molette + glisser</dt><dd>Tourner la caméra</dd><dt>Molette</dt><dd>Zoomer</dd><dt><kbd>Tab</kbd></dt><dd>Basculer en mode destruction${sm ? '' : ' (remboursement de 50 %)'}</dd>
-  <dt><kbd>Q</kbd> <kbd>E</kbd></dt><dd>Pivoter la tuile</dd><dt><kbd>1</kbd>–<kbd>8</kbd></dt><dd>Tuiles récentes</dd><dt>Flèches</dt><dd>Déplacer la caméra</dd></dl></div>
+  <dt>Clic molette + glisser</dt><dd>Tourner la caméra</dd><dt>Molette</dt><dd>Zoomer</dd><dt><kbd>Tab</kbd></dt><dd>Basculer en mode destruction${sm ? '' : ' (remboursement de 75 %)'}</dd>
+  <dt><kbd>Q</kbd> <kbd>E</kbd></dt><dd>Pivoter la tuile</dd><dt><kbd>Ctrl</kbd> + <kbd>Z</kbd></dt><dd>Annuler la dernière pose ou destruction (argent rendu à 100 %)</dd><dt><kbd>1</kbd>–<kbd>8</kbd></dt><dd>Tuiles récentes</dd><dt>Flèches</dt><dd>Déplacer la caméra</dd></dl></div>
   <div class="hcol rules"><h3>Règles · ${sm ? 'Mode Simple' : 'Mode Classique'}</h3>${sm ? SIMPLE_RULES : CLASSIC_RULES}</div>
   <div class="hcol"><h3>Partie</h3><p>Vitesse du temps (missions, bonus, jour et nuit)</p><div id="speed2" class="speedrow"></div>
   <label class="chk"><input type="checkbox" id="hints"> Savoir tous les indices <small>(affiche le thème et la tuile exacte demandés)</small></label>

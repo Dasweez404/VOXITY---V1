@@ -15,7 +15,8 @@ T.forEach(t => { if (t.theme >= 0) themeTiles[t.theme].push(t.id); });
 const lowerCount = (th, s) => themeTiles[th].filter(i => T[i].s < s).length;
 const SUBS = [0, 1, 2, 3, 4, 5].map(c => [...new Set(T.filter(t => t.cat === c && !t.ult && t.theme >= 0 || t.cat === c && c !== 5).flatMap(t => t.subs))].sort((a, b) => a.localeCompare(b, 'fr')));
 const NOUN = { Education: 'une école', Institution: 'un bâtiment officiel', Public: 'un équipement public', Santé: 'un centre de santé', Agriculture: 'une exploitation agricole', Chantier: 'un chantier', Energie: 'une centrale d\'énergie', Fabrication: 'une usine', Technologie: 'un labo high-tech', Maison: 'une maison', Batiment: 'un immeuble', Villa: 'une villa', 'Gratte Ciel': 'un gratte-ciel', Résidence: 'une résidence', Divertissement: 'une attraction', Montagne: 'un coin de montagne', Nature: 'un espace nature', Plage: 'un coin de plage', Sport: 'un équipement sportif', Amplette: 'une boutique', Esthetique: 'un salon de beauté', Mobilier: 'un magasin de mobilier', Nourriture: 'un stand de nourriture', Restaurant: 'un restaurant', Maritime: 'un bateau', Aviation: 'un avion ou un hélicoptère', Ferroviaire: 'un train', Cyclisme: 'une piste cyclable', Route: 'un morceau de route', Chemin: 'un chemin', Autoroute: 'une autoroute', Pont: 'un pont', Elements: 'un élément de décor' };
-const PRESTIGE = [{ n: 'Hameau', at: 0, p: 0 }, { n: 'Village', at: 150, p: 50 }, { n: 'Bourg', at: 600, p: 100 }, { n: 'Ville', at: 2000, p: 150 }, { n: 'Métropole', at: 5000, p: 200 }];
+/* le prestige mesure la variété de la ville : nombre d'assets différents posés */
+const PRESTIGE = [{ n: 'Hameau', at: 0, p: 0 }, { n: 'Village', at: 20, p: 50 }, { n: 'Bourg', at: 50, p: 100 }, { n: 'Ville', at: 100, p: 150 }, { n: 'Métropole', at: 200, p: 200 }];
 /* ===== ANTI-THÈMES ET DISSONANCES : plus la précision du conflit est grande, plus le malus est fort ===== */
 const ANTI_THEMES = [['Industrie & Port', 'Plage & Baignade'], ['Industrie & Port', 'Luxe & Élégance'], ['Industrie & Port', 'Parcs urbains'], ['Industrie & Port', 'Maisons de charme'], ['Chantier & BTP', 'Maisons de charme'], ['Chantier & BTP', 'Parcs urbains'],
   ['Engins de chantier', 'Mariage & Fleurs'], ['Autoroute & Transit', 'Plein air & Camping'], ['Autoroute & Transit', 'Alpin & Chalets'], ['Circuit & Course', 'Santé & Médical'], ['Circuit & Course', 'École & Savoir'], ['Monster Trucks & Extrême', 'Maisons de charme'],
@@ -73,12 +74,12 @@ const MALUS = [{ id: 'mood', n: 'Mécontentement', d: 'Points de vote des missio
 let SAVEKEY = 'voxity_save_v2_classic', started = false;
 const SIG_ = T.length + ':' + T[0].model + ':' + T[T.length - 2].model;
 try { localStorage.removeItem('voxity_save_v1'); } catch (e) { }
-let S, placed = new Map(), agg, tot, prestige;
+let S, placed = new Map(), agg, tot, prestige, variety = 0;
 const keyOf = (x, y) => x + y * N;
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const isSimple = () => S && S.mode === 'simple';
 function newState(mode = 'classic') {
-  return { mode, votes0: 0, extra: 0, crowdUntil: 0, hintUntil: 0, shieldUntil: 0, money: 250, cellMax: {}, allHints: false, lastGain: 0, subsidyAt: 0, votes: mode === 'simple' ? 0 : 20, owned: new Set(T.filter(t => t.s === 0 && !t.ult).map(t => t.id)), peak: 0, packs: 0, time: 0, rot: 0, sel: -1, recent: [], everPlaced: new Set(),
+  return { mode, votes0: 0, extra: 0, crowdUntil: 0, hintUntil: 0, shieldUntil: 0, money: 400, cellMax: {}, allHints: false, lastGain: 0, subsidyAt: 0, votes: mode === 'simple' ? 0 : 20, owned: new Set(T.filter(t => t.s === 0 && !t.ult).map(t => t.id)), peak: 0, packs: 0, time: 0, rot: 0, sel: -1, recent: [], everPlaced: new Set(),
     mission: null, nextMission: mode === 'simple' ? 12 : 70, residents: [], archive: [], buffs: [], malus: null, speed: 1, won: false, uid: 1, destroy: false, seenIntro: false };
 }
 let noSave = false;
@@ -116,7 +117,8 @@ function recalc() {
   tot = { h: 0, capH: BASE_CAPH, capM: BASE_CAPM, n: 0, rev: 0, nrev: 0 };
   placed.forEach(r => { const st = T[r.t]; tot.h += r.h; tot.capH += st.capH; tot.capM += st.capM; if (r.m > 0) { tot.rev += r.m; tot.nrev++; } if (st.cat !== 5) tot.n++; });
   if (albumDone()) tot.capM = Math.max(tot.capM, T[ULT].cost * 1.1);
-  prestige = PRESTIGE.filter(p => pop() >= p.at).pop();
+  variety = new Set([...placed.values()].map(r => r.t)).size;
+  prestige = PRESTIGE.filter(p => variety >= p.at).pop();
 }
 const albumDone = () => { let c = 0; S.owned.forEach(i => { if (i !== ULT) c++; }); return c >= TOTAL; };
 const ownedCount = () => S.owned.size - (S.owned.has(ULT) ? 1 : 0);
@@ -127,20 +129,22 @@ const malusOn = id => S.malus && S.malus.until > now() && S.malus.id === id;
 const malusPow = id => malusOn(id) ? (S.malus.power || .5) : 0;
 /* revenu moyen d'une pose rentable : sert aux bonus d'argent immédiats */
 const avgRev = () => tot.nrev ? tot.rev / tot.nrev : 120;
-const refundOf = rec => Math.floor(rec.paid / 10) * 5;
+const refundOf = rec => Math.floor(rec.paid * 3 / 20) * 5;   /* 75 % du prix, arrondi à un multiple de 5 */
 const r5 = x => Math.max(5, Math.round(x / 5) * 5);
 const buffPct = id => activeBuff(id).reduce((a, b) => a + (b.pct || 0), 0);
 function costOf(t) {
   if (isSimple()) return 0;
   if (t.ult) return t.cost;
   let pct = 0;                                  /* tous les pourcentages s'additionnent */
-  if (t.cat !== 5) pct += Math.min(350, Math.floor(tot.n * 2 / 5));
   if (t.cat < 5) pct -= Math.round(agg.eco[t.cat] * 100);
   pct -= buffPct('chan'); pct += Math.round(80 * malusPow('tax'));
   return r5(t.cost * (100 + Math.max(-75, pct)) / 100);
 }
 const rangeOf = t => t.rng >= 99 ? 99 : t.rng + (t.theme >= 0 && agg.porte.has(t.theme) ? 1 : 0);
-const packPrice = () => r5(isSimple() ? 5 + 10 * ownedCount() / TOTAL : 20 + 40 * ownedCount() / TOTAL);
+const packPrice = () => r5(5 + 10 * ownedCount() / TOTAL);        /* mode Simple */
+/* mode Classique : taille de pack proportionnelle au volume de la catégorie, prix uniforme de 2,5 votes par tuile */
+const PACK_N = [4, 2, 4, 2, 2, 6];
+const packInfo = c => isSimple() ? { n: 5, price: packPrice() } : { n: PACK_N[c], price: PACK_N[c] * 5 / 2 };
 const SYN_BASE = { 2: 2, 3: 3, 4: 5 };
 
 function evaluate(t, x, y) {
@@ -181,7 +185,7 @@ function evaluate(t, x, y) {
   r.presP = t.cat === 2 ? prestige.p : 0; r.rendP = Math.round(agg.rend * 100); r.attrP = Math.round(agg.attr * 100);
   r.tourP = buffPct('tour'); r.strikeP = Math.round(100 * malusPow('strike'));
   /* bonus et malus s'additionnent (jamais de multiplication entre eux) */
-  r.mPct = clamp(r.nearM + r.adjP + r.synP - r.disP + r.rendP + r.tourP - r.strikeP + r.presP, -75, 250);
+  r.mPct = clamp(r.nearM + r.adjP + r.synP - r.disP + r.rendP + r.tourP - r.strikeP + r.presP, -75, 200);
   r.hPct = clamp(r.nearH + r.adjP + r.synP - r.disP + r.attrP + r.presP, -75, 250);
   r.money = !isSimple() && t.money > 0 ? r5(t.money / t.cost * r.cost * (100 + r.mPct) / 100) : 0;
   r.hab = Math.max(0, Math.round(t.hab * (100 + r.hPct) / 100));
@@ -277,14 +281,28 @@ function cellAt(px, py) {
 }
 
 /* ===== ACTIONS ===== */
+const undoStack = [];
+function pushUndo(a) { undoStack.push(a); if (undoStack.length > 8) undoStack.shift(); }
+/* Ctrl+Z : annule la dernière pose ou destruction et rend 100 % de l'argent */
+function undo() {
+  const a = undoStack.pop(); if (!a) { flash('Rien à annuler'); return; }
+  if (a.type === 'place') {
+    const k = keyOf(a.x, a.y); if (!placed.has(k)) return;
+    placed.delete(k); removeObj(k);
+    if (a.hadCell === undefined) delete S.cellMax[k]; else S.cellMax[k] = a.hadCell;
+    if (!a.everHad) S.everPlaced.delete(a.t); S.votes -= a.tv;
+  } else { const rec = a.rec; placed.set(keyOf(rec.x, rec.y), rec); addObj(rec, true); }
+  S.money = a.money; recalc(); S.lastGain = 0; sfx('del'); toast('Action annulée : argent restitué à 100 %.', 'info'); uiDirty = true;
+}
 function place(x, y) {
   const t = T[S.sel]; if (!t || !S.owned.has(t.id)) return false;
   const ev = evaluate(t, x, y);
   if (!ev.ok) { if (ev.errs.length) flash(ev.errs[0]); return false; }
   const rec = { t: t.id, x, y, rot: S.rot, h: ev.hab, m: ev.pay, paid: ev.cost };
+  const ua = { type: 'place', x, y, t: t.id, money: S.money, hadCell: S.cellMax[keyOf(x, y)], everHad: S.everPlaced.has(t.id), tv: 0 }; pushUndo(ua);
   placed.set(keyOf(x, y), rec); addObj(rec, true);
   S.cellMax[keyOf(x, y)] = Math.max(S.cellMax[keyOf(x, y)] || 0, ev.money);
-  if (!S.everPlaced.has(t.id)) { S.everPlaced.add(t.id); if (!isSimple()) S.votes += Math.round(t.vote * (100 + Math.round(agg.pop * 100)) / 100); }
+  if (!S.everPlaced.has(t.id)) { S.everPlaced.add(t.id); if (!isSimple()) { ua.tv = Math.round(t.vote * (100 + Math.round(agg.pop * 100)) / 100); S.votes += ua.tv; } }
   S.recent = [t.id, ...S.recent.filter(i => i !== t.id)].slice(0, 8);
   recalc(); S.money = Math.min(tot.capM, Math.max(0, S.money - ev.cost) + ev.pay); S.lastGain = ev.pay;
   settlePop(); sfx(t.s >= 3 ? 'rare' : 'place');
@@ -296,6 +314,7 @@ function place(x, y) {
 }
 function destroyAt(x, y) {
   const k = keyOf(x, y), rec = placed.get(k); if (!rec) return;
+  pushUndo({ type: 'destroy', rec, money: S.money });
   S.money = Math.min(Math.max(S.money, tot.capM), S.money + refundOf(rec));
   const wp = cellPos(x, y); burst(wp.x, .2, wp.z, 0xb7b09c, 14, 1.4, .07, 6); burst(wp.x, .2, wp.z, 0x8a8f99, 6, .8, .09, 6); floatText(wp.x, .5, wp.z, '+' + fmt(refundOf(rec)) + ' $', 'gold'); cam.shake = Math.max(cam.shake || 0, .06);
   placed.delete(k); removeObj(k); recalc(); sfx('del');
@@ -348,12 +367,12 @@ function simpleMalus(lv = 3) {
   S.malus = { id: 'mood', until: now() + 60 + 120 * pw, power: pw }; toast(`${m.name} déteste ${antiLabel(m.anti)} : mécontentement, récompenses −${Math.round(pw * 100)} % pendant ${Math.round(60 + 120 * pw)} s. Un Service le calmerait.`, 'bad'); sfx('bad');
 }
 function drawPack(cat) {
-  const price = packPrice(); if (S.votes < price) return null;
+  const { n: size, price } = packInfo(cat); if (S.votes < price) return null;
   let pool = T.filter(t => !t.ult && !S.owned.has(t.id) && t.cat === cat);
   if (!pool.length) return null;
   S.votes -= price; S.packs++;
   const out = [];
-  for (let n = 0; n < 5 && pool.length; n++) {
+  for (let n = 0; n < size && pool.length; n++) {
     let sum = pool.reduce((a, t) => a + RW[t.s], 0), r = Math.random() * sum, i = 0;
     for (; i < pool.length - 1; i++) { r -= RW[pool[i].s]; if (r <= 0) break; }
     out.push(pool[i]); pool.splice(i, 1);
@@ -507,6 +526,7 @@ addEventListener('keydown', e => {
   if (e.code === 'Space') { e.preventDefault(); if (document.activeElement) document.activeElement.blur(); if (!menuOpen()) toggleTray(); }
   else if (e.code === 'Tab') { e.preventDefault(); S.destroy = !S.destroy; uiDirty = true; sfx('click'); }
   else if (e.code === 'Escape') toggleMenu();
+  else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); }
   else if (e.key.toLowerCase() === 'q') { S.rot = (S.rot + 3) % 4; }
   else if (e.key.toLowerCase() === 'e') { S.rot = (S.rot + 1) % 4; }
   else if (/^Digit[1-8]$/.test(e.code) && !menuOpen()) { const id = S.recent[+e.code[5] - 1]; if (id != null) { selectTile(id); } }

@@ -9,7 +9,7 @@ function tutoSteps(mode) {
   const packSteps = votesText => {
     info('Les votes', votesText, '#st-votes');
     go('Ouvrir le menu', 'Appuyez sur <kbd>Échap</kbd> pour ouvrir le menu, puis cliquez sur l\'onglet <b>Packs</b>.', () => menuOpen() && U.tab === 'packs', { hl: () => menuOpen() ? '#tabs .tab:nth-child(2)' : '#open-menu', enter: () => { S.votes = Math.max(S.votes, 40); closeMenu(); } });
-    go('Ouvrir un pack', 'Chaque pack contient <b>5 stickers d\'une catégorie</b>, sans doublon. Ouvrez-en un puis retournez les cartes.', () => S.packs >= 1, { hl: '.packbtn:not(:disabled)' });
+    go('Ouvrir un pack', 'Chaque pack contient des stickers <b>d\'une catégorie</b>, sans doublon (5 votes pour 2 stickers). Ouvrez-en un puis retournez les cartes.', () => S.packs >= 1, { hl: '.packbtn:not(:disabled)' });
     go('Revenir en ville', 'Fermez le résultat puis le menu (<kbd>Échap</kbd>). Les nouvelles tuiles sont dans la barre de construction.', () => $('#reveal').hidden && !menuOpen(), { hl: '#r-close' });
   };
   const pick = (cat, chipN) => () => !trayIsOpen() && S.sel < 0 ? '#open-tray' : (U.bCat !== cat ? chipSel(chipN) : '#tr-list .card:not(.locked)');
@@ -22,13 +22,13 @@ function tutoSteps(mode) {
     go('Choisir une tuile', 'Filtrez sur <b>Habitations</b> puis cliquez sur une tuile pour la sélectionner.', () => S.sel >= 0 && T[S.sel].cat === 0, { hl: pick(0, 2), enter: () => { if (!trayIsOpen()) openTray(); } });
     go('Poser librement', '<b>Clic gauche</b> sur la carte pour poser. En mode Simple, c\'est gratuit et sans limite : maintenez le clic pour tracer une ligne. Posez 3 tuiles.', () => placed.size >= 3);
   } else {
-    go('Choisir un commerce', 'Filtrez sur <b>Commerces</b> puis choisissez-en un. Les commerces sont ce qui rapporte de l\'argent.', () => S.sel >= 0 && T[S.sel].cat === 1, { hl: pick(1, 3), enter: () => { if (!trayIsOpen()) openTray(); } });
+    go('Choisir un commerce', 'Filtrez sur <b>Commerces</b> puis choisissez-en un. Les commerces rapportent <b>à peine plus que leur prix</b> : leur vrai gain vient des <b>productions</b> et des habitations posées à côté.', () => S.sel >= 0 && T[S.sel].cat === 1, { hl: pick(1, 3), enter: () => { if (!trayIsOpen()) openTray(); } });
     go('Gagner de l\'argent à la pose', '<b>Clic gauche</b> pour poser. L\'argent se gagne <b>uniquement à la pose</b>, jamais avec le temps : regardez le gain s\'afficher. Survolez une case pour voir le gain prévu avant de poser.', () => placedCat(1));
     go('Choisir une habitation', 'Les habitations ne rapportent pas d\'argent mais logent des habitants. Filtrez sur <b>Habitations</b> et choisissez-en une.', () => S.sel >= 0 && T[S.sel].cat === 0, { hl: pick(0, 2), enter: () => { if (!trayIsOpen()) openTray(); } });
     go('Loger des habitants', 'Posez-la : votre compteur d\'<b>habitants</b> augmente (jusqu\'au plafond de population).', () => placedCat(0));
     packSteps('Chaque habitant vous donne <b>1 point de vote</b> (compteur à côté de l\'argent). Les votes servent à ouvrir des <b>packs</b> de stickers pour débloquer de nouvelles tuiles.');
   }
-  go('Détruire', 'Appuyez sur <kbd>Tab</kbd> pour passer en <b>mode destruction</b>' + (sm ? '.' : ' (la moitié du prix est remboursée).'), () => S.destroy, { hl: '#mode' });
+  go('Détruire', 'Appuyez sur <kbd>Tab</kbd> pour passer en <b>mode destruction</b>' + (sm ? '.' : ' (75 % du prix est remboursé ; <kbd>Ctrl</kbd>+<kbd>Z</kbd> annule la dernière action et rend tout).'), () => S.destroy, { hl: '#mode' });
   go('Revenir à la construction', 'Appuyez de nouveau sur <kbd>Tab</kbd>.', () => !S.destroy, { hl: '#mode' });
   go('Un habitant spécial arrive', 'Voici sa demande (panneau à gauche) : la <b>sous-catégorie</b> est donnée, le thème et la tuile exacte se devinent (ici tous les indices sont affichés). Posez une tuile de la bonne sous-catégorie : plus c\'est précis (thème, tuile exacte), meilleure est la récompense.', () => missionLevel().lv >= 1, { hl: '#mission', enter: () => { S.hintUntil = now() + 1e6; S.nextMission = 1e12; S.mission = null; S.money = Math.max(S.money, 1500); spawnMission(); } });
   go(sm ? 'Aider l\'habitant' : 'Accueillir l\'habitant', sm ? 'Cliquez sur <b>Aider</b> : l\'habitant s\'installe et vous gagnez des <b>points de vote</b> (8, 16 ou 28 selon la précision).' : 'Cliquez sur <b>Accueillir</b> : il s\'installe en ville et vous gagnez des votes et de l\'argent selon la précision.', () => S.residents.length >= 1 && $('#reveal').hidden, { hl: '#m-ok' });

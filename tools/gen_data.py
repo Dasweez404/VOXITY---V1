@@ -35,18 +35,18 @@ for r in rows:
     k=model
     cost=hab=money=capH=capM=mH=mM=bM=bH=vote=0
     if cat=='Houses':
-        c0,C0 = HOUSE[p]; capH=round(C0*MH[s]*jit(k,'c')); cost=c0*CM[s]*jit(k,'k'); hab=round(capH*.65)
+        c0,C0 = HOUSE[p]; capH=max(2,round(C0*MH[s]*jit(k,'c')/3)); cost=c0*CM[s]*jit(k,'k'); hab=round(capH*.65)
         bM=pct(5+3*s)
         vote=0
     elif cat=='Shops':
-        c0=SHOP[p]; cost=r5(c0*CM[s]*jit(k,'k')); money=r5(cost*(2.0+.1*s)*jit(k,'m',.06)); capM=int(round(cost*4/50.0))*50
-        hab=round(cost/45); vote=0
+        c0=SHOP[p]; cost=r5(c0*CM[s]*jit(k,'k')); money=r5(cost*[1.10,1.05,.95,.90,.85][s]*jit(k,'m',.03)); capM=int(round(cost*4/50.0))*50
+        hab=round(cost/100); vote=0
     elif cat=='Fun':
-        c0=FUN[p]; cost=r5(c0*CM[s]*jit(k,'k')); money=r5(cost*(1.2+.1*s)*jit(k,'m',.06)); hab=round(cost/(18+4*s)*jit(k,'h')); capM=int(round(cost*2/50.0))*50
+        c0=FUN[p]; cost=r5(c0*CM[s]*jit(k,'k')); money=r5(cost*[1.0,.95,.9,.85,.8][s]*jit(k,'m',.03)); hab=round(cost/(54+12*s)*jit(k,'h')); capM=0
         vote=1+s
     elif cat=='Production':
-        c0,wb_,wm=PROD[p]; cost=r5(c0*CM[s]*jit(k,'k')); money=r5(cost*.7)
-        bM=pct((6+4*s)*wb_*jit(k,'b',.08)); mH=pct((4+3*s)*wm*jit(k,'w',.08))
+        c0,wb_,wm=PROD[p]; cost=r5(c0*CM[s]*jit(k,'k')); money=r5(cost*.5)
+        bM=pct((30+6*s)*wb_*jit(k,'b',.08)); mH=pct((4+3*s)*wm*jit(k,'w',.08))
     elif cat=='Services':
         c0=SERV[p]; cost=c0*CM[s]*jit(k,'k')
         bH=pct((6+4*s)*jit(k,'b',.08)); mM=pct(round(bH*100)*.5); vote=2+2*s
