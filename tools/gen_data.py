@@ -14,6 +14,8 @@ MH = [1,1.8,3.2,5.5,9]          # multiplicateur de capacité d'habitants
 def h(s, salt=''):
     return int(hashlib.md5((s+salt).encode()).hexdigest()[:8],16)/0xffffffff
 def jit(s, salt, amp=0.12): return 1 + (h(s,salt)*2-1)*amp
+def r5(x): return max(5, int(round(x/5.0))*5)
+def pct(x): return round(x)/100.0
 
 # (coût de base, valeur de base) par sous-catégorie
 HOUSE = {'Maison':(45,5),'Résidence':(110,12),'Batiment':(80,9),'Villa':(150,14),'Gratte Ciel':(400,36)}
@@ -34,29 +36,29 @@ for r in rows:
     cost=hab=money=capH=capM=mH=mM=bM=bH=vote=0
     if cat=='Houses':
         c0,C0 = HOUSE[p]; capH=round(C0*MH[s]*jit(k,'c')); cost=c0*CM[s]*jit(k,'k'); hab=round(capH*.65)
-        bM=round(.05+.025*s,3)
+        bM=pct(5+3*s)
         vote=0
     elif cat=='Shops':
-        c0=SHOP[p]; cost=c0*CM[s]*jit(k,'k'); money=cost*(2.0+.1*s)*jit(k,'m',.06); capM=round(cost*4)
+        c0=SHOP[p]; cost=r5(c0*CM[s]*jit(k,'k')); money=r5(cost*(2.0+.1*s)*jit(k,'m',.06)); capM=int(round(cost*4/50.0))*50
         hab=round(cost/45); vote=0
     elif cat=='Fun':
-        c0=FUN[p]; cost=c0*CM[s]*jit(k,'k'); money=cost*(1.2+.1*s)*jit(k,'m',.06); hab=round(cost/(18+4*s)*jit(k,'h')); capM=round(cost*2)
+        c0=FUN[p]; cost=r5(c0*CM[s]*jit(k,'k')); money=r5(cost*(1.2+.1*s)*jit(k,'m',.06)); hab=round(cost/(18+4*s)*jit(k,'h')); capM=int(round(cost*2/50.0))*50
         vote=1+s
     elif cat=='Production':
-        c0,wb_,wm=PROD[p]; cost=c0*CM[s]*jit(k,'k'); money=cost*.7
-        bM=round((.06+.04*s)*wb_*jit(k,'b',.08),3); mH=round((.04+.03*s)*wm*jit(k,'w',.08),3)
+        c0,wb_,wm=PROD[p]; cost=r5(c0*CM[s]*jit(k,'k')); money=r5(cost*.7)
+        bM=pct((6+4*s)*wb_*jit(k,'b',.08)); mH=pct((4+3*s)*wm*jit(k,'w',.08))
     elif cat=='Services':
         c0=SERV[p]; cost=c0*CM[s]*jit(k,'k')
-        bH=round((.06+.04*s)*jit(k,'b',.08),3); mM=round(bH*.5,3); vote=2+2*s
+        bH=pct((6+4*s)*jit(k,'b',.08)); mM=pct(round(bH*100)*.5); vote=2+2*s
     else:
         if name.lower().startswith('hill') or theme=='#HILL#': c0=5
         elif len(subs)>=4 and 'Pont' not in subs: c0=20       # véhicules
         elif p in ROAD: c0=ROAD[p]
         else: c0=6                                              # Elements
-        cost=c0*CM[s]*jit(k,'k')
+        cost=r5(c0*CM[s]*jit(k,'k'))
         if p in NETWORK and theme!='#HILL#':
-            bM=bH=round(.006*(1+s),3)
-    cost=max(3,round(cost)); money=round(money)
+            bM=bH=pct(.6*(1+s))
+    cost=r5(cost); money=r5(money) if money else 0
     data.append(dict(model=model,name=name,cat=cat,sub=sub,theme=theme,rar=rar,s=s,cost=cost,hab=hab,money=money,
         capH=capH,capM=capM,mH=mH,mM=mM,bM=bM,bH=bH,rng=RANGE[s],vote=vote,rlock=rlock,subs=subs,nowalk=bool(nowalk)))
     # écriture dans l'Excel
@@ -86,8 +88,8 @@ tb=[]
 for i,t in enumerate(themes):
     n=cnt[t]; kind=KINDS[i%4]
     if n>=25 and h(t,'p')<.45: kind='porte'
-    val={'attr':round(.02+.0003*min(n,100),3),'rend':round(.025+.0004*min(n,100),3),'pop':round(.03+.0005*min(n,100),3),
-         'eco':round(.02+.0003*min(n,100),3),'porte':1}[kind]
+    val={'attr':pct(2+.03*min(n,100)),'rend':pct(3+.04*min(n,100)),'pop':pct(3+.05*min(n,100)),
+         'eco':pct(2+.03*min(n,100)),'porte':1}[kind]
     tb.append(dict(theme=t,n=n,kind=kind,val=val,ecoCat=int(h(t,'e')*5) if kind=='eco' else None))
 cats=['Habitations','Commerces','Loisirs','Productions','Services','Routes']
 d=dict(cats=cats,themes=themes,themeBonus=tb,

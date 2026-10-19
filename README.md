@@ -24,6 +24,11 @@ Chaque carte du menu propose aussi un **tutoriel guidé** (caméra, barre de con
 
 Les **synergies sont optionnelles** dans les deux modes : une tuile ★★ ou plus avec ses synergies (tuiles du même thème à portée, route à 2 cases) gagne +25 % de gain et d'habitants, sinon elle se pose quand même.
 
+## Valeurs
+Toutes les valeurs sont des entiers : prix et gains multiples de 5, habitants entiers, pourcentages entiers. Les bonus et malus en pourcentage s'additionnent ou se soustraient entre eux (le prestige des Loisirs va de +0 % à +200 %), jamais de multiplication entre eux.
+
+Les **dissonances** : certains thèmes, sous-catégories et catégories se gênent entre eux. Une tuile posée à moins de 3 cases d'une tuile qui la dérange perd des habitants (et du gain) : tuile exacte −40 %, thème −25 %, sous-catégorie −14 %, catégorie −7 %. Un habitant spécial peut aussi détester une tuile, un thème, une sous-catégorie ou une catégorie, avec un malus d'autant plus fort que c'est précis. En mode Simple, les points de vote ne s'obtiennent qu'en aidant les habitants spéciaux et servent à ouvrir les packs.
+
 ## Règles clés (mode Classique)
 - Une seule tuile par `Asset_Name` (la plus basse en rareté) : 865 stickers dont 48 de départ. L'Excel enrichi marque les lignes retenues dans la colonne « Tuile retenue ».
 - L'argent ne se gagne qu'à la pose d'une tuile (commerces, loisirs, productions), jamais avec le temps. Les habitations ne rapportent rien seules. Sur une même case, remplacer une tuile ne rapporte que la différence avec le meilleur gain déjà perçu.

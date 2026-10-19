@@ -15,16 +15,59 @@ T.forEach(t => { if (t.theme >= 0) themeTiles[t.theme].push(t.id); });
 const lowerCount = (th, s) => themeTiles[th].filter(i => T[i].s < s).length;
 const SUBS = [0, 1, 2, 3, 4, 5].map(c => [...new Set(T.filter(t => t.cat === c && !t.ult && t.theme >= 0 || t.cat === c && c !== 5).flatMap(t => t.subs))].sort((a, b) => a.localeCompare(b, 'fr')));
 const NOUN = { Education: 'une école', Institution: 'un bâtiment officiel', Public: 'un équipement public', Santé: 'un centre de santé', Agriculture: 'une exploitation agricole', Chantier: 'un chantier', Energie: 'une centrale d\'énergie', Fabrication: 'une usine', Technologie: 'un labo high-tech', Maison: 'une maison', Batiment: 'un immeuble', Villa: 'une villa', 'Gratte Ciel': 'un gratte-ciel', Résidence: 'une résidence', Divertissement: 'une attraction', Montagne: 'un coin de montagne', Nature: 'un espace nature', Plage: 'un coin de plage', Sport: 'un équipement sportif', Amplette: 'une boutique', Esthetique: 'un salon de beauté', Mobilier: 'un magasin de mobilier', Nourriture: 'un stand de nourriture', Restaurant: 'un restaurant', Maritime: 'un bateau', Aviation: 'un avion ou un hélicoptère', Ferroviaire: 'un train', Cyclisme: 'une piste cyclable', Route: 'un morceau de route', Chemin: 'un chemin', Autoroute: 'une autoroute', Pont: 'un pont', Elements: 'un élément de décor' };
-const PRESTIGE = [{ n: 'Hameau', at: 0, m: 1 }, { n: 'Village', at: 150, m: 1.5 }, { n: 'Bourg', at: 600, m: 2 }, { n: 'Ville', at: 2000, m: 2.5 }, { n: 'Métropole', at: 5000, m: 3 }];
+const PRESTIGE = [{ n: 'Hameau', at: 0, p: 0 }, { n: 'Village', at: 150, p: 50 }, { n: 'Bourg', at: 600, p: 100 }, { n: 'Ville', at: 2000, p: 150 }, { n: 'Métropole', at: 5000, p: 200 }];
+/* ===== ANTI-THÈMES ET DISSONANCES : plus la précision du conflit est grande, plus le malus est fort ===== */
+const ANTI_THEMES = [['Industrie & Port', 'Plage & Baignade'], ['Industrie & Port', 'Luxe & Élégance'], ['Industrie & Port', 'Parcs urbains'], ['Industrie & Port', 'Maisons de charme'], ['Chantier & BTP', 'Maisons de charme'], ['Chantier & BTP', 'Parcs urbains'],
+  ['Engins de chantier', 'Mariage & Fleurs'], ['Autoroute & Transit', 'Plein air & Camping'], ['Autoroute & Transit', 'Alpin & Chalets'], ['Circuit & Course', 'Santé & Médical'], ['Circuit & Course', 'École & Savoir'], ['Monster Trucks & Extrême', 'Maisons de charme'],
+  ['Monster Trucks & Extrême', 'Zoo & Animaux'], ["Parc d'attractions", 'Santé & Médical'], ['Nuit & Jeux', 'École & Savoir'], ['Nuit & Jeux', 'Santé & Médical'], ['Énergie & Environnement', 'Essences & Bosquets'], ['Science & Espace', 'Rorbu & Pêche'],
+  ['Aéroport & Aviation', 'Alpin & Chalets'], ['Aéroport & Aviation', 'Zoo & Animaux'], ['Aéroport & Aviation', 'Maisons de charme'], ['Gratte-ciels & Affaires', 'Rorbu & Pêche'], ['Gratte-ciels & Affaires', 'Alpin & Chalets'], ['Gratte-ciels & Affaires', 'Sumika'],
+  ['Haussmannien', 'Tropical'], ['Tropical', 'Alpin & Chalets'], ['Montagne & Ski', 'Plage & Baignade'], ['Montagne & Ski', 'Tropical'], ['Montagne & Ski', 'Oasis & Orient'], ['Hacienda', 'Alpin & Chalets'], ['Moderne', 'Impérial'], ['Moderne', 'Haussmannien'],
+  ['Ferme & Élevage', 'Gratte-ciels & Affaires'], ['Ferme & Élevage', 'Luxe & Élégance'], ['Zoo & Animaux', 'Street food & Livraison'], ['Trains & Gares', 'Plein air & Camping'], ['Métro & Tramway', 'Rorbu & Pêche'], ['Yachting & Voile', 'Industrie & Port'], ['Tourisme & Croisières', 'Industrie & Port'], ['Fêtes & Saisons', 'Santé & Médical']];
+const ANTI_SUBS = [['Fabrication', 'Maison'], ['Fabrication', 'Villa'], ['Fabrication', 'Plage'], ['Fabrication', 'Nature'], ['Energie', 'Plage'], ['Energie', 'Nature'], ['Chantier', 'Education'], ['Chantier', 'Santé'], ['Chantier', 'Villa'], ['Agriculture', 'Gratte Ciel'],
+  ['Divertissement', 'Santé'], ['Divertissement', 'Education'], ['Sport', 'Santé'], ['Montagne', 'Plage'], ['Autoroute', 'Plage'], ['Autoroute', 'Nature'], ['Aviation', 'Maison'], ['Aviation', 'Villa'], ['Aviation', 'Santé'], ['Aviation', 'Education'], ['Ferroviaire', 'Villa'], ['Restaurant', 'Agriculture']];
+const ANTI_CATS = [[3, 2], [3, 0]];
+const aT = D.themes.map(() => new Set()), aS = {}, aC = [0, 1, 2, 3, 4, 5].map(() => new Set());
+ANTI_THEMES.forEach(([a, b]) => { const i = D.themes.indexOf(a), j = D.themes.indexOf(b); if (i >= 0 && j >= 0) { aT[i].add(j); aT[j].add(i); } });
+ANTI_SUBS.forEach(([a, b]) => { (aS[a] = aS[a] || new Set()).add(b); (aS[b] = aS[b] || new Set()).add(a); });
+ANTI_CATS.forEach(([a, b]) => { aC[a].add(b); aC[b].add(a); });
+const _antiTile = {};
+function antiTile(t) {
+  if (t.theme < 0) return -1; if (_antiTile[t.id] !== undefined) return _antiTile[t.id];
+  const pool = T.filter(x => !x.ult && aT[t.theme].has(x.theme));
+  return _antiTile[t.id] = pool.length ? pool[hash32(t.model + 'a') % pool.length].id : -1;
+}
+const PEN = [0, .07, .14, .25, .40], MPOW = [0, .15, .3, .5, .75], KIND_LV = { cat: 1, sub: 2, theme: 3, tile: 4 }, LV_NAME = ['', 'catégorie', 'sous-catégorie', 'thème', 'tuile exacte'];
+/* niveau de conflit entre deux tuiles : 4 tuile exacte, 3 thème, 2 sous-catégorie, 1 catégorie */
+function conflict(a, b) {
+  if (a.id === b.id || a.ult || b.ult) return 0;
+  if (a.theme >= 0 && b.theme >= 0 && aT[a.theme].has(b.theme)) return (antiTile(a) === b.id || antiTile(b) === a.id) ? 4 : 3;
+  for (const x of a.subs) { const s = aS[x]; if (s) for (const y of b.subs) if (s.has(y)) return 2; }
+  if (aC[a.cat].has(b.cat) && !(S && S.mode !== 'simple' && (a.cat === 3 || b.cat === 3) && (a.cat === 0 || b.cat === 0))) return 1;
+  return 0;
+}
+const normAnti = a => a == null || a === -1 ? null : (typeof a === 'number' ? { k: 'theme', v: a } : a);
+function antiMatch(a, t) { a = normAnti(a); if (!a) return false; return a.k === 'tile' ? t.id === a.v : a.k === 'theme' ? t.theme === a.v : a.k === 'sub' ? t.subs.includes(a.v) : t.cat === a.v; }
+function antiLabel(a) { a = normAnti(a); if (!a) return ''; const n = a.k === 'tile' ? T[a.v].name : a.k === 'theme' ? D.themes[a.v] : a.k === 'sub' ? a.v : D.cats[a.v]; return `${n} (${LV_NAME[KIND_LV[a.k]]})`; }
+function pickAnti(tile) {
+  const order = ['tile', 'theme', 'sub', 'cat'], r = Math.random(), start = r < .15 ? 0 : r < .5 ? 1 : r < .8 ? 2 : 3, rnd = a => a[Math.floor(Math.random() * a.length)];
+  for (let i = start; i < 4; i++) {
+    const k = order[i];
+    if (k === 'tile') { const id = antiTile(tile); if (id >= 0) return { k, v: id }; }
+    else if (k === 'theme') { const c = tile.theme >= 0 ? [...aT[tile.theme]] : []; if (c.length) return { k, v: rnd(c) }; }
+    else if (k === 'sub') { const c = aS[tile.subs[0]] ? [...aS[tile.subs[0]]] : []; if (c.length) return { k, v: rnd(c) }; }
+    else { const c = [...aC[tile.cat]]; return { k, v: c.length ? rnd(c) : rnd([0, 1, 2, 3, 4, 5].filter(x => x !== tile.cat)) }; }
+  }
+  return { k: 'cat', v: rnd([0, 1, 2, 3, 4, 5].filter(x => x !== tile.cat)) };
+}
 const BASE_CAPH = 15, BASE_CAPM = 1000;
 const FIRST = ['Léa', 'Hugo', 'Inès', 'Maël', 'Camille', 'Noor', 'Yanis', 'Zoé', 'Tom', 'Aïcha', 'Louis', 'Manon', 'Elio', 'Sana', 'Jules', 'Rosa', 'Malo', 'Nina', 'Ravi', 'Clara', 'Théo', 'Mina', 'Oscar', 'Lila'];
 const JOBS = ['pompier', 'boulangère', 'architecte', 'musicien', 'jardinière', 'pilote', 'cuisinier', 'professeure', 'mécanicien', 'photographe', 'explorateur', 'maire retraité', 'critique gastronomique', 'ingénieure', 'skipper', 'fleuriste'];
 const BONUSES = [
-  { id: 'tour', n: 'Afflux de touristes', ds: L => `Une foule de touristes visite la ville pendant 60 s`, d: L => `Revenus de pose ×${[1.5, 2, 3][L - 1]} pendant ${[40, 55, 75][L - 1]} s` },
-  { id: 'spot', n: 'Coup de projecteur', ds: L => `+${L} sticker${L > 1 ? 's' : ''} à la prochaine aide`, d: L => `Votes bonus immédiats (×${L})` },
+  { id: 'tour', n: 'Afflux de touristes', ds: L => `Une foule de touristes visite la ville pendant 60 s`, d: L => `Revenus de pose +${[50, 100, 200][L - 1]} % pendant ${[40, 55, 75][L - 1]} s` },
+  { id: 'spot', n: 'Coup de projecteur', ds: L => `+${L * 10} votes à la prochaine aide`, d: L => `Votes bonus immédiats` },
   { id: 'chan', n: 'Chantier solidaire', ds: L => `Inspiration : tous les indices pendant 5 min`, d: L => `Coûts −${[20, 35, 50][L - 1]} % pendant 60 s` },
-  { id: 'bour', n: 'Bourse du quartier', ds: L => `Un sticker offert`, d: L => `Argent immédiat (${[3, 6, 12][L - 1]} poses moyennes)` }];
-const MALUS = [{ id: 'mood', n: 'Mécontentement', d: 'Récompenses de stickers réduites de moitié' }, { id: 'strike', n: 'Grève', d: 'Revenus de pose −50 %' }, { id: 'press', n: 'Mauvaise presse', d: 'Plus de votes' }, { id: 'tax', n: 'Taxe exceptionnelle', d: 'Coûts +40 %' }];
+  { id: 'bour', n: 'Bourse du quartier', ds: L => `+10 votes offerts`, d: L => `Argent immédiat (${[3, 6, 12][L - 1]} poses moyennes)` }];
+const MALUS = [{ id: 'mood', n: 'Mécontentement', d: 'Points de vote des missions réduits' }, { id: 'strike', n: 'Grève', d: 'Revenus de pose réduits' }, { id: 'press', n: 'Mauvaise presse', d: 'Votes réduits' }, { id: 'tax', n: 'Taxe exceptionnelle', d: 'Coûts augmentés' }];
 
 /* ===== ÉTAT ===== */
 let SAVEKEY = 'voxity_save_v2_classic', started = false;
@@ -35,7 +78,7 @@ const keyOf = (x, y) => x + y * N;
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const isSimple = () => S && S.mode === 'simple';
 function newState(mode = 'classic') {
-  return { mode, extra: 0, crowdUntil: 0, hintUntil: 0, shieldUntil: 0, money: 250, cellMax: {}, allHints: false, lastGain: 0, subsidyAt: 0, votes: 20, owned: new Set(T.filter(t => t.s === 0 && !t.ult).map(t => t.id)), peak: 0, packs: 0, time: 0, rot: 0, sel: -1, recent: [], everPlaced: new Set(),
+  return { mode, votes0: 0, extra: 0, crowdUntil: 0, hintUntil: 0, shieldUntil: 0, money: 250, cellMax: {}, allHints: false, lastGain: 0, subsidyAt: 0, votes: mode === 'simple' ? 0 : 20, owned: new Set(T.filter(t => t.s === 0 && !t.ult).map(t => t.id)), peak: 0, packs: 0, time: 0, rot: 0, sel: -1, recent: [], everPlaced: new Set(),
     mission: null, nextMission: mode === 'simple' ? 12 : 70, residents: [], archive: [], buffs: [], malus: null, speed: 1, won: false, uid: 1, destroy: false, seenIntro: false };
 }
 let noSave = false;
@@ -81,20 +124,23 @@ const pop = () => isSimple() ? tot.h : Math.min(tot.h, tot.capH);
 const now = () => S.time;
 const activeBuff = id => S.buffs.filter(b => b.until > now() && b.id === id);
 const malusOn = id => S.malus && S.malus.until > now() && S.malus.id === id;
+const malusPow = id => malusOn(id) ? (S.malus.power || .5) : 0;
 /* revenu moyen d'une pose rentable : sert aux bonus d'argent immédiats */
 const avgRev = () => tot.nrev ? tot.rev / tot.nrev : 120;
-const revMult = () => { let m = 1 + agg.rend; activeBuff('tour').forEach(b => m *= b.mult); if (malusOn('strike')) m *= .5; return m; };
-function costMult() { let m = 1; activeBuff('chan').forEach(b => m *= b.mult); if (malusOn('tax')) m *= 1.4; return m; }
+const refundOf = rec => Math.floor(rec.paid / 10) * 5;
+const r5 = x => Math.max(5, Math.round(x / 5) * 5);
+const buffPct = id => activeBuff(id).reduce((a, b) => a + (b.pct || 0), 0);
 function costOf(t) {
   if (isSimple()) return 0;
   if (t.ult) return t.cost;
-  let c = t.cost;
-  if (t.cat !== 5) c *= 1 + Math.min(3.5, .004 * tot.n);
-  if (t.cat < 5) c *= 1 - agg.eco[t.cat];
-  return Math.max(1, Math.round(c * costMult()));
+  let pct = 0;                                  /* tous les pourcentages s'additionnent */
+  if (t.cat !== 5) pct += Math.min(350, Math.floor(tot.n * 2 / 5));
+  if (t.cat < 5) pct -= Math.round(agg.eco[t.cat] * 100);
+  pct -= buffPct('chan'); pct += Math.round(80 * malusPow('tax'));
+  return r5(t.cost * (100 + Math.max(-75, pct)) / 100);
 }
 const rangeOf = t => t.rng >= 99 ? 99 : t.rng + (t.theme >= 0 && agg.porte.has(t.theme) ? 1 : 0);
-const packPrice = () => Math.round(20 + 40 * ownedCount() / TOTAL);
+const packPrice = () => r5(isSimple() ? 5 + 10 * ownedCount() / TOTAL : 20 + 40 * ownedCount() / TOTAL);
 const SYN_BASE = { 2: 2, 3: 3, 4: 5 };
 
 function evaluate(t, x, y) {
@@ -103,10 +149,11 @@ function evaluate(t, x, y) {
   if (placed.has(keyOf(x, y))) { r.ok = false; r.errs.push('Case occupée'); }
   if (S.money < r.cost) { r.ok = false; r.errs.push('Argent insuffisant'); }
   else if (r.cost > tot.capM) { r.ok = false; r.errs.push(`Plafond d'argent trop bas (${fmt(tot.capM)})`); }
-  let bM = 0, mM = 0, bH = 0, mH = 0, sameTheme = 0, road = false;
+  let bM = 0, mM = 0, bH = 0, mH = 0, sameTheme = 0, road = false, dpen = 0; const ditems = [];
   const tr = rangeOf(t);
   placed.forEach(rec => {
     const st = T[rec.t], d = Math.max(Math.abs(rec.x - x), Math.abs(rec.y - y));
+    if (d <= 3) { const lv = conflict(t, st); if (lv) { const pi = Math.round(PEN[lv] * 100 * (d <= 1 ? 1 : d === 2 ? .6 : .3)) / 100; dpen += pi; ditems.push({ st, lv, d, pen: pi, x: rec.x, y: rec.y }); } }
     if (t.theme >= 0 && st.theme === t.theme && d <= tr) sameTheme++;
     if (st.cat === 5 && st.theme >= 0 && (st.bM || st.bH) && d <= 2) road = true;
     if (d > rangeOf(st)) return;
@@ -122,15 +169,22 @@ function evaluate(t, x, y) {
     if (need > 0) { r.reqs.push({ label: `${need} tuile${need > 1 ? 's' : ''} « ${D.themes[t.theme]} » à portée`, ok: sameTheme >= need, have: sameTheme, need }); }
   }
   if (t.s >= 2 && t.cat < 5 && !t.ult) r.reqs.push({ label: 'Une route à 2 cases maximum', ok: road });
-  r.synOK = r.reqs.length > 0 && r.reqs.every(q => q.ok); const synB = r.synOK ? 1.25 : 1;   /* synergies optionnelles : bonus, jamais un blocage */
+  r.synOK = r.reqs.length > 0 && r.reqs.every(q => q.ok);   /* synergies optionnelles : bonus, jamais un blocage */
   if (t.theme >= 0) for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) {
     if (!dx && !dy) continue; const o = placed.get(keyOf(x + dx, y + dy)); if (o && T[o.t].theme === t.theme) r.adj++;
   }
-  const adjM = 1 + Math.min(.64, .08 * r.adj);
-  r.mm = clamp(1 + bM - mM, .25, 3.5); r.hm = clamp(1 + bH - mH, .25, 3.5); r.adjM = adjM;
-  r.money = !isSimple() && t.money > 0 ? t.money / t.cost * r.cost * ((t.cat === 1 || t.cat === 2) ? r.mm : 1) * adjM * synB * revMult() * (t.cat === 2 ? prestige.m : 1) : 0;
-  r.hab = t.hab * ((t.cat === 0 || t.cat === 2) ? r.hm : 1) * adjM * synB * (1 + agg.attr) * (t.cat === 2 ? prestige.m : 1);
-  r.hab = Math.round(r.hab * 10) / 10; r.money = Math.round(r.money);
+  dpen = Math.min(.75, Math.round(dpen * 100) / 100);
+  const isM = t.cat === 1 || t.cat === 2, isH = t.cat === 0 || t.cat === 2;
+  r.nearM = isM ? Math.round((bM - mM) * 100) : 0; r.nearH = isH ? Math.round((bH - mH) * 100) : 0;
+  r.adjP = Math.min(64, 8 * r.adj); r.synP = r.synOK ? 25 : 0; r.disP = Math.round(dpen * 100);
+  r.dis = { pen: dpen, items: ditems.sort((a, b) => b.lv - a.lv || b.pen - a.pen).slice(0, 4) };
+  r.presP = t.cat === 2 ? prestige.p : 0; r.rendP = Math.round(agg.rend * 100); r.attrP = Math.round(agg.attr * 100);
+  r.tourP = buffPct('tour'); r.strikeP = Math.round(100 * malusPow('strike'));
+  /* bonus et malus s'additionnent (jamais de multiplication entre eux) */
+  r.mPct = clamp(r.nearM + r.adjP + r.synP - r.disP + r.rendP + r.tourP - r.strikeP + r.presP, -75, 250);
+  r.hPct = clamp(r.nearH + r.adjP + r.synP - r.disP + r.attrP + r.presP, -75, 250);
+  r.money = !isSimple() && t.money > 0 ? r5(t.money / t.cost * r.cost * (100 + r.mPct) / 100) : 0;
+  r.hab = Math.max(0, Math.round(t.hab * (100 + r.hPct) / 100));
   r.pay = Math.max(0, r.money - (S.cellMax[keyOf(x, y)] || 0)); r.net = r.pay - r.cost;
   return r;
 }
@@ -230,27 +284,27 @@ function place(x, y) {
   const rec = { t: t.id, x, y, rot: S.rot, h: ev.hab, m: ev.pay, paid: ev.cost };
   placed.set(keyOf(x, y), rec); addObj(rec, true);
   S.cellMax[keyOf(x, y)] = Math.max(S.cellMax[keyOf(x, y)] || 0, ev.money);
-  if (!S.everPlaced.has(t.id)) { S.everPlaced.add(t.id); S.votes += t.vote * (1 + agg.pop); }
+  if (!S.everPlaced.has(t.id)) { S.everPlaced.add(t.id); if (!isSimple()) S.votes += Math.round(t.vote * (100 + Math.round(agg.pop * 100)) / 100); }
   S.recent = [t.id, ...S.recent.filter(i => i !== t.id)].slice(0, 8);
   recalc(); S.money = Math.min(tot.capM, Math.max(0, S.money - ev.cost) + ev.pay); S.lastGain = ev.pay;
   settlePop(); sfx(t.s >= 3 ? 'rare' : 'place');
   placeFx(t, x, y, ev);
-  if (S.mission && S.mission.anti >= 0 && t.theme === S.mission.anti) { if (isSimple()) simpleMalus(); else failMission(true); }
+  if (S.mission && antiMatch(S.mission.anti, t)) { const lv = KIND_LV[normAnti(S.mission.anti).k]; if (isSimple()) simpleMalus(lv); else failMission(true, lv); }
   if (isSimple() && t.cat === 4) { S.malus = null; S.shieldUntil = now() + 180; toast('Service public : la ville est protégée des malus pendant 3 min.', 'gold'); }
   if (t.ult) win();
   uiDirty = true; return true;
 }
 function destroyAt(x, y) {
   const k = keyOf(x, y), rec = placed.get(k); if (!rec) return;
-  S.money = Math.min(Math.max(S.money, tot.capM), S.money + Math.floor(rec.paid * .5));
-  const wp = cellPos(x, y); burst(wp.x, .2, wp.z, 0xb7b09c, 14, 1.4, .07, 6); burst(wp.x, .2, wp.z, 0x8a8f99, 6, .8, .09, 6); floatText(wp.x, .5, wp.z, '+' + fmt(rec.paid * .5) + ' $', 'gold'); cam.shake = Math.max(cam.shake || 0, .06);
+  S.money = Math.min(Math.max(S.money, tot.capM), S.money + refundOf(rec));
+  const wp = cellPos(x, y); burst(wp.x, .2, wp.z, 0xb7b09c, 14, 1.4, .07, 6); burst(wp.x, .2, wp.z, 0x8a8f99, 6, .8, .09, 6); floatText(wp.x, .5, wp.z, '+' + fmt(refundOf(rec)) + ' $', 'gold'); cam.shake = Math.max(cam.shake || 0, .06);
   placed.delete(k); removeObj(k); recalc(); sfx('del');
   S.residents.forEach(r => { if (r.x === x && r.y === y) relocateResident(r); });
   uiDirty = true;
 }
 function settlePop() {
   const p = pop();
-  if (p > S.peak) { if (!isSimple()) S.votes += (p - S.peak) * (1 + agg.pop) * (malusOn('press') ? 0 : 1); S.peak = p; }
+  if (p > S.peak) { if (!isSimple()) { S.vfrac = (S.vfrac || 0) + (p - S.peak) * (100 + Math.round(agg.pop * 100) - Math.round(100 * malusPow('press'))) / 100; const w = Math.floor(S.vfrac); S.votes += w; S.vfrac -= w; } S.peak = p; }
 }
 
 function placeFx(t, x, y, ev) {
@@ -260,6 +314,7 @@ function placeFx(t, x, y, ev) {
   if (ev.hab > 0) floatText(wp.x, .7, wp.z, '+' + f1(ev.hab) + ' hab.', 'pop', 140);
   if (ev.pay > 0) floatText(wp.x, .7, wp.z, '+' + fmt(ev.pay) + ' $', 'gold', 280);
   else if (ev.money > 0) floatText(wp.x, .7, wp.z, 'déjà perçu', 'neg', 280);
+  if (ev.dis && ev.dis.pen > 0) { floatText(wp.x, .9, wp.z, 'Dissonance −' + Math.round(ev.dis.pen * 100) + ' %', 'neg', 420); ev.dis.items.forEach(i => { const q = cellPos(i.x, i.y); burst(q.x, .5, q.z, 0xff5a4a, 5 + i.lv * 2, .9, .045, 2); }); sfx('bad'); }
   if (t.s >= 3) { cam.shake = .12 + t.s * .05; pillar(wp.x, wp.z, col); burst(wp.x, .3, wp.z, 0xffc94a, 18, 2.2, .05); }
   if (t.s >= 4) flashScreen(CATC[t.cat]);
   if (t.theme >= 0) { /* adjacence : étincelles vers les voisines du même thème */ for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) { const o = placed.get(keyOf(x + dx, y + dy)); if ((dx || dy) && o && T[o.t].theme === t.theme) { const q = cellPos(x + dx, y + dy); burst(q.x, .5, q.z, 0xffe08a, 4, .7, .04, 2); } } }
@@ -286,11 +341,11 @@ function grantStickers(n, cat, theme) {
   if (out.length) unlockTiles(out);
   return out;
 }
-function simpleMalus() {
-  const m = S.mission; if (!m) return;
+function simpleMalus(lv = 3) {
+  const m = S.mission; if (!m) return; const pw = MPOW[lv];
   if (now() < S.shieldUntil) { toast(`${m.name} n'aime pas ce thème, mais la ville est protégée.`, 'info'); return; }
   if (S.malus && S.malus.until > now()) return;
-  S.malus = { id: 'mood', until: now() + 120 }; toast(`${m.name} déteste ce thème : mécontentement 2 min, récompenses réduites. Un Service le calmerait.`, 'bad'); sfx('bad');
+  S.malus = { id: 'mood', until: now() + 60 + 120 * pw, power: pw }; toast(`${m.name} déteste ${antiLabel(m.anti)} : mécontentement, récompenses −${Math.round(pw * 100)} % pendant ${Math.round(60 + 120 * pw)} s. Un Service le calmerait.`, 'bad'); sfx('bad');
 }
 function drawPack(cat) {
   const price = packPrice(); if (S.votes < price) return null;
@@ -314,8 +369,7 @@ function spawnMission() {
   const subs = [...new Set(base.flatMap(t => t.subs))].filter(s => NOUN[s]);
   const sub = pick(subs);
   const cands = base.filter(t => t.subs.includes(sub) && t.theme >= 0), tile = pick(cands.length ? cands : base.filter(t => t.subs.includes(sub)));
-  let anti = -1;
-  if (Math.random() < .35) { do { anti = Math.floor(Math.random() * D.themes.length); } while (anti === tile.theme); }
+  const anti = Math.random() < .4 ? pickAnti(tile) : null;
   const name = pick(FIRST), job = pick(JOBS), hue = Math.floor(Math.random() * 360);
   S.mission = { id: S.uid++, name, job, hue, sub, theme: tile.theme, tile: tile.id, anti, until: isSimple() ? 1e12 : now() + 240, bonus: Math.floor(Math.random() * BONUSES.length) };
   toast(`${name}, ${job}, arrive en ville.`, 'info'); sfx('bell'); uiDirty = true;
@@ -334,7 +388,7 @@ function archive(m, status, lv) { S.archive.unshift({ id: m.id, name: m.name, jo
 function welcome() {
   const m = S.mission, { lv, at } = missionLevel(); if (!m || !lv) return;
   if (isSimple()) return welcomeSimple(m, lv, at);
-  const votes = Math.ceil((6 + Math.sqrt(pop()) * .8) * [1, 2, 4][lv - 1] * (1 + agg.pop)), money = Math.round(Math.max(60 * lv, avgRev() * [2, 4, 8][lv - 1]));
+  const votes = Math.round((6 + Math.round(Math.sqrt(pop()) * .8)) * [1, 2, 4][lv - 1] * (100 + Math.round(agg.pop * 100)) / 100), money = r5(Math.max(60 * lv, avgRev() * [2, 4, 8][lv - 1]));
   S.votes += votes; S.money = Math.min(Math.max(S.money, tot.capM), S.money + money);
   S.residents.push({ id: m.id, name: m.name, job: m.job, hue: m.hue, bonus: m.bonus, lv, x: at.x, y: at.y, ready: now() + 20 });
   archive(m, 'ok', lv); S.mission = null; S.nextMission = now() + 270 + Math.random() * 60;
@@ -342,21 +396,20 @@ function welcome() {
   confetti(innerWidth / 2, innerHeight / 2, 80); { const q = cellPos(at.x, at.y); burst(q.x, .5, q.z, 0xffc94a, 24, 2, .06); ring(q.x, q.z, 0xffc94a, 1.6); }
 }
 function welcomeSimple(m, lv, at) {
-  let n = [2, 4, 6][lv - 1] + (S.extra || 0); S.extra = 0;
-  if (Math.random() < agg.luck) n++;
-  if (malusOn('mood')) n = Math.max(1, Math.ceil(n / 2));
-  const out = grantStickers(n, T[m.tile].cat, m.theme);
+  let v = [8, 16, 28][lv - 1] + (S.extra || 0) * 10; S.extra = 0;
+  if (Math.random() < agg.luck) v += packPrice();
+  const pw = malusPow('mood'); if (pw) v = Math.max(1, Math.round(v * (1 - pw)));
+  S.votes += v;
   S.residents.push({ id: m.id, name: m.name, job: m.job, hue: m.hue, bonus: m.bonus, lv, x: at.x, y: at.y, ready: now() + 15 });
   archive(m, 'ok', lv); S.mission = null; S.nextMission = now() + 20 + Math.random() * 20;
-  toast(`${m.name} s'installe ! +${out.length} sticker${out.length > 1 ? 's' : ''}`, 'gold'); sfx('win'); rebuildResidents(); uiDirty = true;
+  toast(`${m.name} s'installe ! +${v} points de vote`, 'gold'); sfx('win'); rebuildResidents(); uiDirty = true;
   confetti(innerWidth / 2, innerHeight / 2, 80); { const q = cellPos(at.x, at.y); burst(q.x, .5, q.z, 0xffc94a, 24, 2, .06); ring(q.x, q.z, 0xffc94a, 1.6); }
-  if (out.length) setTimeout(() => showReveal(out), 600);
 }
-function failMission(angry) {
+function failMission(angry, lv = 3) {
   const m = S.mission; if (!m) return;
   if (angry) {
     const free = !(S.malus && S.malus.until > now());
-    if (free) { const mal = pick(MALUS); S.malus = { id: mal.id, until: now() + 90 }; toast(`${m.name} est furieux : ${mal.n} (${mal.d}) pendant 90 s.`, 'bad'); }
+    if (free) { const mal = pick(MALUS.filter(x => x.id !== 'mood')), pw = MPOW[lv]; S.malus = { id: mal.id, until: now() + 60 + 120 * pw, power: pw }; toast(`${m.name} est furieux (${antiLabel(m.anti)}) : ${mal.n} −${Math.round(pw * 100)} % pendant ${Math.round(60 + 120 * pw)} s.`, 'bad'); }
     else toast(`${m.name} est furieux et s'en va.`, 'bad');
     sfx('bad');
   } else toast(`${m.name} est reparti(e).`, 'info');
@@ -371,13 +424,13 @@ function clickResident(r) {
   const L = r.lv, b = BONUSES[r.bonus];
   if (isSimple()) {
     if (b.id === 'tour') { S.crowdUntil = now() + 60; toast('Afflux de touristes : la ville est en fête !', 'gold'); }
-    else if (b.id === 'spot') { S.extra = (S.extra || 0) + L; toast(`Coup de projecteur : +${L} sticker${L > 1 ? 's' : ''} à la prochaine aide`, 'gold'); }
+    else if (b.id === 'spot') { S.extra = (S.extra || 0) + L; toast(`Coup de projecteur : +${L * 10} votes à la prochaine aide`, 'gold'); }
     else if (b.id === 'chan') { S.hintUntil = now() + 300; missKey = ''; toast('Inspiration : tous les indices pendant 5 min', 'gold'); }
-    else { const out = grantStickers(1, -1, -1); if (out.length) setTimeout(() => showReveal(out), 400); toast('Cadeau du quartier : un sticker offert', 'gold'); }
-  } else if (b.id === 'tour') S.buffs.push({ id: 'tour', until: now() + [40, 55, 75][L - 1], mult: [1.5, 2, 3][L - 1], by: r.name });
-  else if (b.id === 'chan') S.buffs.push({ id: 'chan', until: now() + 60, mult: 1 - [.2, .35, .5][L - 1], by: r.name });
-  else if (b.id === 'spot') { const v = Math.ceil((4 + pop() * .03) * L * (1 + agg.pop)); S.votes += v; toast(`Coup de projecteur : +${fmt(v)} votes`, 'gold'); }
-  else { const g = Math.round(Math.max(60 * L, avgRev() * [3, 6, 12][L - 1])); S.money = Math.min(Math.max(S.money, tot.capM), S.money + g); toast(`Bourse du quartier : +${fmt(g)} $`, 'gold'); }
+    else { S.votes += 10; toast('Cadeau du quartier : +10 votes', 'gold'); }
+  } else if (b.id === 'tour') S.buffs.push({ id: 'tour', until: now() + [40, 55, 75][L - 1], pct: [50, 100, 200][L - 1], by: r.name });
+  else if (b.id === 'chan') S.buffs.push({ id: 'chan', until: now() + 60, pct: [20, 35, 50][L - 1], by: r.name });
+  else if (b.id === 'spot') { const v = Math.round((4 + Math.round(pop() * .03)) * L * (100 + Math.round(agg.pop * 100)) / 100); S.votes += v; toast(`Coup de projecteur : +${fmt(v)} votes`, 'gold'); }
+  else { const g = r5(Math.max(60 * L, avgRev() * [3, 6, 12][L - 1])); S.money = Math.min(Math.max(S.money, tot.capM), S.money + g); toast(`Bourse du quartier : +${fmt(g)} $`, 'gold'); }
   if (b.id === 'tour' || b.id === 'chan') toast(`${r.name} : ${b.n} !`, 'gold');
   r.ready = now() + 240; sfx('win'); rebuildResidents(); uiDirty = true;
   { const q = cellPos(r.x, r.y); burst(q.x, .6, q.z, 0xffc94a, 22, 1.8, .06); ring(q.x, q.z, 0xffc94a, 1.4); pillar(q.x, q.z, 0xffc94a); floatText(q.x, 1, q.z, b.n, 'gold'); }
@@ -466,7 +519,7 @@ function tick(dt) {
     if (mn < Infinity && S.money < mn) { S.money = Math.min(tot.capM, mn); S.subsidyAt = now() + 90; toast(`Subvention municipale : +${fmt(mn)} $ pour relancer la ville.`, 'gold'); sfx('win'); }
   }
   settlePop();
-  if (!isSimple() && lastPrestige && prestige.n !== lastPrestige) { if (prestige.at > 0 && PRESTIGE.findIndex(p => p.n === prestige.n) > PRESTIGE.findIndex(p => p.n === lastPrestige)) { banner(prestige.n, `Loisirs ×${prestige.m}`, 'level'); sfx('win'); } }
+  if (!isSimple() && lastPrestige && prestige.n !== lastPrestige) { if (prestige.at > 0 && PRESTIGE.findIndex(p => p.n === prestige.n) > PRESTIGE.findIndex(p => p.n === lastPrestige)) { banner(prestige.n, `Loisirs +${prestige.p} %`, 'level'); sfx('win'); } }
   lastPrestige = prestige.n;
   S.buffs = S.buffs.filter(b => b.until > now());
   if (S.malus && S.malus.until <= now()) S.malus = null;
@@ -495,7 +548,7 @@ function frame(tm) {
     const c = mouse.cell, t = S.sel >= 0 ? T[S.sel] : null;
     marker.visible = true; marker.position.x = c.x - HALF + .5; marker.position.z = c.y - HALF + .5;
     if (S.destroy) { marker.material.color.setHex(placed.has(keyOf(c.x, c.y)) ? 0xff4d5e : 0x888888); updateGhost(null); }
-    else if (t) { const ev = evaluate(t, c.x, c.y); marker.material.color.setHex(ev.ok ? 0x3ddbb0 : 0xff4d5e); updateGhost(c); infoFor(t, ev, c); }
+    else if (t) { const ev = evaluate(t, c.x, c.y); marker.material.color.setHex(ev.ok ? (ev.dis && ev.dis.pen > 0 ? 0xffa94d : 0x3ddbb0) : 0xff4d5e); updateGhost(c); infoFor(t, ev, c); }
     else { marker.material.color.setHex(0xffffff); updateGhost(null); infoFor(null); }
     if (S.destroy || !t) infoFor(null, null, c);
   } else { marker.visible = false; updateGhost(null); infoFor(null); }
