@@ -5,7 +5,7 @@ const RANGES = [1, 2, 3, 4, 99];
 const CATC = ['#ffb454', '#ff7a8a', '#54d6a0', '#b08cff', '#5cb8ff', '#9aa7b5'];
 const T = D.tiles.map((a, i) => ({
   id: i, model: a[0], name: a[1], cat: a[2], sub: a[3], subs: a[3].split(',').map(s => s.trim()), theme: a[4], s: a[5], cost: a[6],
-  hab: a[7], money: a[8], capH: a[9], capM: a[10], mH: a[11], mM: a[12], bM: a[13], bH: a[14], vote: a[15], rlock: a[16], rng: RANGES[a[5]]
+  hab: a[7], money: a[8], capH: a[9], capM: a[10], mH: a[11], mM: a[12], bM: a[13], bH: a[14], vote: a[15], rlock: a[16], walk: a[17], rng: RANGES[a[5]]
 }));
 const ULT = T.length;
 T.push({ id: ULT, model: 'VOXITY_Tower', name: 'Tour Voxity', cat: 0, sub: 'Monument', subs: ['Monument'], theme: -1, s: 4, cost: 400000, hab: 0, money: 0, capH: 0, capM: 0, mH: 0, mM: 0, bM: 0, bH: 0, vote: 0, rlock: 'LOCK', rng: 99, ult: true });
@@ -164,14 +164,15 @@ function makeHolder(t, rot) {
   const h = new THREE.Group(), m = buildModel(t);
   h.add(m); h.rotation.y = (t.rlock === 'LOCK' ? 0 : t.rlock === 'FLIP' ? (rot % 2) * 2 : rot) * Math.PI / 2;
   h.traverse(o => { if (o.userData.spin || o.userData.spinY) spinners.push(o); });
+  if (m.userData.smoke) h.userData.smoke = m.userData.smoke;
   return h;
 }
 function addObj(rec, animate) {
   const t = T[rec.t], h = makeHolder(t, rec.rot); h.position.copy(cellPos(rec.x, rec.y));
   if (animate) { h.scale.setScalar(.2); h.userData.t0 = performance.now(); anim.add(h); }
-  world.add(h); objs.set(keyOf(rec.x, rec.y), h); renderer.shadowMap.needsUpdate = true;
+  world.add(h); objs.set(keyOf(rec.x, rec.y), h); renderer.shadowMap.needsUpdate = true; if (h.userData.smoke) smokers.set(keyOf(rec.x, rec.y), h);
 }
-function removeObj(k) { const h = objs.get(k); if (!h) return; world.remove(h); objs.delete(k); anim.delete(h); renderer.shadowMap.needsUpdate = true; }
+function removeObj(k) { const h = objs.get(k); if (!h) return; world.remove(h); objs.delete(k); anim.delete(h); smokers.delete(k); renderer.shadowMap.needsUpdate = true; }
 
 /* aperçu */
 const marker = new THREE.Mesh(new THREE.PlaneGeometry(.98, .98), new THREE.MeshBasicMaterial({ color: 0x3ddbb0, transparent: true, opacity: .5, depthWrite: false }));
@@ -200,6 +201,7 @@ function updateCamera() {
   camera.left = -v * asp / 2; camera.right = v * asp / 2; camera.top = v / 2; camera.bottom = -v / 2; camera.updateProjectionMatrix();
   const cp = Math.cos(cam.pitch), sp_ = Math.sin(cam.pitch), D_ = 80;
   camera.position.set(cam.x + Math.sin(cam.yaw) * cp * D_, sp_ * D_, cam.z + Math.cos(cam.yaw) * cp * D_);
+  if (cam.shake > 0) camera.position.add(new THREE.Vector3((Math.random() - .5) * cam.shake, (Math.random() - .5) * cam.shake, (Math.random() - .5) * cam.shake));
   camera.lookAt(cam.x, 0, cam.z); camera.updateMatrixWorld();
 }
 function resize() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); canvas.style.width = w + 'px'; canvas.style.height = h + 'px'; updateCamera(); }
@@ -222,7 +224,8 @@ function place(x, y) {
   placed.set(keyOf(x, y), rec); addObj(rec, true);
   if (!S.everPlaced.has(t.id)) { S.everPlaced.add(t.id); S.votes += t.vote * (1 + agg.pop); }
   S.recent = [t.id, ...S.recent.filter(i => i !== t.id)].slice(0, 8);
-  recalc(); settlePop(); sfx('place');
+  recalc(); settlePop(); sfx(t.s >= 3 ? 'rare' : 'place');
+  placeFx(t, x, y, ev);
   if (S.mission && S.mission.anti >= 0 && t.theme === S.mission.anti) failMission(true);
   if (t.ult) win();
   uiDirty = true; return true;
@@ -230,6 +233,7 @@ function place(x, y) {
 function destroyAt(x, y) {
   const k = keyOf(x, y), rec = placed.get(k); if (!rec) return;
   S.money = Math.min(Math.max(S.money, tot.capM), S.money + Math.floor(rec.paid * .5));
+  const wp = cellPos(x, y); burst(wp.x, .2, wp.z, 0xb7b09c, 14, 1.4, .07, 6); burst(wp.x, .2, wp.z, 0x8a8f99, 6, .8, .09, 6); floatText(wp.x, .5, wp.z, '+' + fmt(rec.paid * .5) + ' $', 'gold'); cam.shake = Math.max(cam.shake || 0, .06);
   placed.delete(k); removeObj(k); recalc(); sfx('del');
   S.residents.forEach(r => { if (r.x === x && r.y === y) relocateResident(r); });
   uiDirty = true;
@@ -237,6 +241,17 @@ function destroyAt(x, y) {
 function settlePop() {
   const p = pop();
   if (p > S.peak) { S.votes += (p - S.peak) * (1 + agg.pop) * (malusOn('press') ? 0 : 1); S.peak = p; }
+}
+
+function placeFx(t, x, y, ev) {
+  const wp = cellPos(x, y), col = hexOf(CATC[t.cat]);
+  burst(wp.x, .15, wp.z, col, 12 + t.s * 7, 1.6 + t.s * .35, .055 + t.s * .01); ring(wp.x, wp.z, col, 1 + t.s * .25);
+  floatText(wp.x, .7, wp.z, '−' + fmt(ev.cost) + ' $', 'neg');
+  if (ev.hab > 0) floatText(wp.x, .7, wp.z, '+' + f1(ev.hab) + ' hab.', 'pop', 140);
+  if (ev.money > 0) floatText(wp.x, .7, wp.z, '+' + f1(ev.money) + ' $/s', 'gold', 280);
+  if (t.s >= 3) { cam.shake = .12 + t.s * .05; pillar(wp.x, wp.z, col); burst(wp.x, .3, wp.z, 0xffc94a, 18, 2.2, .05); }
+  if (t.s >= 4) flashScreen(CATC[t.cat]);
+  if (t.theme >= 0) { /* adjacence : étincelles vers les voisines du même thème */ for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) { const o = placed.get(keyOf(x + dx, y + dy)); if ((dx || dy) && o && T[o.t].theme === t.theme) { const q = cellPos(x + dx, y + dy); burst(q.x, .5, q.z, 0xffe08a, 4, .7, .04, 2); } } }
 }
 
 /* ===== PACKS ===== */
@@ -253,7 +268,10 @@ function drawPack(kind, key) {
     for (; i < pool.length - 1; i++) { r -= RW[pool[i].s]; if (r <= 0) break; }
     out.push(pool[i]); pool.splice(i, 1);
   }
+  const doneBefore = ownedByTheme().map((c, i) => c >= D.themeBonus[i].n);
   out.forEach(t => S.owned.add(t.id));
+  const doneNow = ownedByTheme().map((c, i) => c >= D.themeBonus[i].n);
+  doneNow.forEach((d, i) => { if (d && !doneBefore[i]) setTimeout(() => { banner('Thème complété', `${D.themes[i]} · ${bonusLabel(D.themeBonus[i])}`, 'theme'); sfx('win'); }, 900 + i * 50); });
   if (albumDone() && !S.owned.has(ULT)) { S.owned.add(ULT); toast('Album complet ! La Tour Voxity est débloquée.', 'gold'); }
   recalc(); uiDirty = true; sfx('pack');
   return out;
@@ -291,6 +309,7 @@ function welcome() {
   S.residents.push({ id: m.id, name: m.name, job: m.job, hue: m.hue, bonus: m.bonus, lv, x: at.x, y: at.y, ready: now() + 20 });
   archive(m, 'ok', lv); S.mission = null; S.nextMission = now() + 270 + Math.random() * 60;
   toast(`${m.name} s'installe ! +${fmt(votes)} votes, +${fmt(money)} $`, 'gold'); sfx('win'); rebuildResidents(); uiDirty = true;
+  confetti(innerWidth / 2, innerHeight / 2, 80); { const q = cellPos(at.x, at.y); burst(q.x, .5, q.z, 0xffc94a, 24, 2, .06); ring(q.x, q.z, 0xffc94a, 1.6); }
 }
 function failMission(angry) {
   const m = S.mission; if (!m) return;
@@ -315,15 +334,15 @@ function clickResident(r) {
   else { const g = Math.max(150 * L, income() * [60, 120, 240][L - 1]); S.money = Math.min(Math.max(S.money, tot.capM), S.money + g); toast(`Bourse du quartier : +${fmt(g)} $`, 'gold'); }
   if (b.id === 'tour' || b.id === 'chan') toast(`${r.name} : ${b.n} !`, 'gold');
   r.ready = now() + 240; sfx('win'); rebuildResidents(); uiDirty = true;
+  { const q = cellPos(r.x, r.y); burst(q.x, .6, q.z, 0xffc94a, 22, 1.8, .06); ring(q.x, q.z, 0xffc94a, 1.4); pillar(q.x, q.z, 0xffc94a); floatText(q.x, 1, q.z, b.n, 'gold'); }
 }
 function rebuildResidents() {
   while (residentGroup.children.length) residentGroup.remove(residentGroup.children[0]);
   S.residents.forEach(r => {
-    const g = new THREE.Group(), c = new THREE.Color().setHSL(r.hue / 360, .6, .55).getHex();
-    put(g, G.cone, mat(c), .09, .24, .09, 0, .12, 0); put(g, G.sph, mat(0xffd9b8), .065, .065, .065, 0, .3, 0); put(g, G.cone, mat(0x394a60), .07, .08, .07, 0, .39, 0);
-    const k = new THREE.Mesh(G.oct, glow(0xffc94a)); k.scale.set(.06, .09, .06); k.position.y = .6; k.name = 'mark'; g.add(k);
+    const g = mkCitizen(r.hue / 360, 2.1, true);
+    const k = new THREE.Mesh(G.oct, glow(0xffc94a)); k.scale.set(.07, .1, .07); k.position.y = 1.0; k.name = 'mark'; g.add(k);
     const h = objs.get(keyOf(r.x, r.y)); let top = .1; if (h) { const b = new THREE.Box3().setFromObject(h); top = b.max.y + .02; }
-    g.position.copy(cellPos(r.x, r.y)); g.position.y = top; g.userData.res = r; residentGroup.add(g);
+    g.position.copy(cellPos(r.x, r.y)); g.position.y = top; g.userData.top = top; g.userData.res = r; residentGroup.add(g);
   });
 }
 
@@ -333,7 +352,7 @@ let actx = null;
 function sfx(k) {
   try {
     actx = actx || new (window.AudioContext || window.webkitAudioContext)();
-    const p = { place: [[520, .05], [660, .06]], del: [[300, .07]], pack: [[440, .08], [660, .08], [880, .12]], bell: [[880, .1], [1100, .12]], win: [[523, .1], [659, .1], [784, .18]], bad: [[200, .15], [150, .2]], click: [[600, .03]] }[k] || [];
+    const p = { place: [[520, .05], [660, .06]], del: [[300, .07]], pack: [[440, .08], [660, .08], [880, .12]], bell: [[880, .1], [1100, .12]], win: [[523, .1], [659, .1], [784, .18]], bad: [[200, .15], [150, .2]], rare: [[660, .07], [880, .07], [1320, .16]], click: [[600, .03]] }[k] || [];
     let t0 = actx.currentTime;
     p.forEach(([f, d]) => { const o = actx.createOscillator(), g = actx.createGain(); o.type = k === 'bad' ? 'sawtooth' : 'triangle'; o.frequency.value = f; g.gain.setValueAtTime(.05, t0); g.gain.exponentialRampToValueAtTime(.0001, t0 + d); o.connect(g); g.connect(actx.destination); o.start(t0); o.stop(t0 + d); t0 += d * .8; });
   } catch (e) { }
@@ -348,6 +367,8 @@ canvas.addEventListener('pointerdown', e => {
   mouse.btn = e.button; mouse.lx = e.clientX; mouse.ly = e.clientY; mouse.moved = 0; e.preventDefault();
   if (e.button === 0) {
     ndc.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera);
+    const ch = ray.intersectObjects(citGroup.children, true);
+    if (ch.length) { let o = ch[0].object; while (o && o.parent !== citGroup) o = o.parent; const c = cits.find(c => c.g === o); if (c) { pokeCitizen(c); mouse.btn = -1; return; } }
     const hits = ray.intersectObjects(residentGroup.children, true);
     if (hits.length) { let o = hits[0].object; while (o && !o.userData.res) o = o.parent; if (o) { clickResident(o.userData.res); mouse.btn = -1; return; } }
     actOn(cellAt(e.clientX, e.clientY));
@@ -387,11 +408,13 @@ addEventListener('keyup', e => { keys[e.code] = false; });
 function selectTile(id) { S.sel = id; S.destroy = false; S.rot = 0; uiDirty = true; sfx('click'); }
 
 /* ===== BOUCLE ===== */
-let uiDirty = true, last = performance.now(), hudT = 0, saveT = 0, missT = 0;
+let lastPrestige = '', uiDirty = true, last = performance.now(), hudT = 0, saveT = 0, missT = 0;
 function tick(dt) {
   S.time += dt;
   const inc = income(); if (S.money < tot.capM) S.money = Math.min(tot.capM, S.money + inc * dt);
   settlePop();
+  if (lastPrestige && prestige.n !== lastPrestige) { if (prestige.at > 0 && PRESTIGE.findIndex(p => p.n === prestige.n) > PRESTIGE.findIndex(p => p.n === lastPrestige)) { banner(prestige.n, `Loisirs ×${prestige.m}`, 'level'); sfx('win'); } }
+  lastPrestige = prestige.n;
   S.buffs = S.buffs.filter(b => b.until > now());
   if (S.malus && S.malus.until <= now()) S.malus = null;
   if (!S.mission && now() >= S.nextMission) spawnMission();
@@ -410,7 +433,9 @@ function frame(tm) {
   const tn = performance.now();
   anim.forEach(h => { const a = (tn - h.userData.t0) / 260; if (a >= 1) { h.scale.setScalar(1); anim.delete(h); } else { const e = 1 - Math.pow(1 - a, 3); h.scale.setScalar(.2 + .8 * e + Math.sin(a * Math.PI) * .12); } });
   spinners.forEach(o => { if (o.userData.spin) o.rotation.z += rdt * 1.2; if (o.userData.spinY) o.rotation.z += rdt * .8; });
-  residentGroup.children.forEach(g => { const m = g.getObjectByName('mark'); const r = g.userData.res; if (m) { m.visible = now() >= r.ready; m.rotation.y += rdt * 2; m.position.y = .6 + Math.sin(tn / 300) * .04; } g.position.y += 0; });
+  residentGroup.children.forEach(g => { const m = g.getObjectByName('mark'), r = g.userData.res, rdy = now() >= r.ready; if (m) { m.visible = rdy; m.rotation.y += rdt * 2; m.position.y = 1.0 + Math.sin(tn / 300) * .05; } g.position.y = g.userData.top + (rdy ? Math.abs(Math.sin(tn / 260)) * .07 : 0); g.userData.inner.rotation.y = Math.sin(tn / 1200) * .6; });
+  fxUpdate(rdt, tn); animateHUD(rdt);
+  marker.material.opacity = .42 + Math.sin(tn / 180) * .14; if (ghost && ghost.visible) ghost.position.y = .03 + Math.abs(Math.sin(tn / 320)) * .05;
   // survol
   if (mouse.cell) {
     const c = mouse.cell, t = S.sel >= 0 ? T[S.sel] : null;
@@ -427,7 +452,7 @@ function frame(tm) {
 }
 
 function boot() {
-  const had = load(); recalc();
+  const had = load(); recalc(); lastPrestige = prestige.n;
   placed.forEach(r => addObj(r, false)); rebuildResidents();
   resize(); updateCamera(); setGhost(); buildUI();
   if (!had) { openMenu('help'); }

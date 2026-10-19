@@ -171,3 +171,106 @@ button#m-ok:not(:disabled):hover,.packbtn:not(:disabled):hover{filter:brightness
 :focus-visible{outline:2px solid var(--teal);outline-offset:2px}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 @media (max-width:700px){.stat{min-width:0;flex:1 1 140px}.logo{display:none}#mission{top:190px}#info{top:190px}#mode{top:auto;bottom:90px}}
+/* ===== ANIMATIONS ET RETOURS VISUELS ===== */
+#vig{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 45%,transparent 55%,rgba(8,16,28,.38) 100%);z-index:1}
+#fx,#confetti{position:fixed;inset:0;pointer-events:none;z-index:35}
+#hud,#bottom,#mission,#info,#mode{z-index:5}
+.ft{position:absolute;transform:translate(-50%,-50%);font:700 17px var(--f-d);white-space:nowrap;text-shadow:0 2px 0 rgba(0,0,0,.45),0 0 8px rgba(0,0,0,.35);animation:ftup 1.3s cubic-bezier(.2,.7,.3,1) forwards}
+.ft.neg{color:#ff9c8a}.ft.pop{color:#8fd3ff}.ft.gold{color:var(--gold)}.ft.vote{color:#ffb089;font-size:20px}.ft.heart{color:#ff7a8a;font-size:24px}
+@keyframes ftup{0%{opacity:0;transform:translate(-50%,-30%) scale(.5)}15%{opacity:1;transform:translate(-50%,-70%) scale(1.2)}30%{transform:translate(-50%,-90%) scale(1)}100%{opacity:0;transform:translate(-50%,-260%) scale(1)}}
+#flash{position:fixed;inset:0;pointer-events:none;z-index:34;opacity:0;background:radial-gradient(circle at 50% 50%,transparent 30%,var(--fc,#ffc94a) 130%)}
+#flash.go{animation:flash .7s ease-out}
+@keyframes flash{0%{opacity:.75}100%{opacity:0}}
+#banner{position:fixed;left:50%;top:26%;transform:translate(-50%,-50%);z-index:36;pointer-events:none;text-align:center;opacity:0;display:flex;flex-direction:column;gap:6px;padding:16px 48px;border-radius:20px;background:linear-gradient(135deg,rgba(255,122,69,.96),rgba(176,140,255,.96));box-shadow:0 14px 50px rgba(0,0,0,.45);max-width:calc(100vw - 24px)}
+#banner b{font:700 clamp(26px,5vw,46px) var(--f-d);color:#fff;text-shadow:0 3px 0 rgba(0,0,0,.25);letter-spacing:.02em}
+#banner span{color:#fff;font-weight:600;font-size:15px}
+#banner.theme{background:linear-gradient(135deg,#3ddbb0,#5cb8ff)}#banner.level{background:linear-gradient(135deg,#ffc94a,#ff7a45)}
+#banner.show{animation:bnr 3.2s cubic-bezier(.2,.9,.3,1.1) forwards}
+@keyframes bnr{0%{opacity:0;transform:translate(-50%,-30%) scale(.5) rotate(-4deg)}12%{opacity:1;transform:translate(-50%,-50%) scale(1.08) rotate(1deg)}20%{transform:translate(-50%,-50%) scale(1) rotate(0)}85%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-70%) scale(.9)}}
+/* HUD vivant */
+.stat{transition:transform .15s,border-color .2s;animation:hudin .6s cubic-bezier(.2,.9,.3,1.2) backwards}
+.stat:nth-of-type(1){animation-delay:.05s}.stat:nth-of-type(2){animation-delay:.12s}.stat:nth-of-type(3){animation-delay:.19s}.stat:nth-of-type(4){animation-delay:.26s}
+@keyframes hudin{from{opacity:0;transform:translateY(-24px) scale(.9)}}
+.stat.bump{animation:bump .42s cubic-bezier(.3,1.6,.5,1)}
+.stat.bump .ico{animation:wob .42s}
+@keyframes bump{0%{transform:scale(1)}35%{transform:scale(1.14);border-color:var(--gold);box-shadow:0 0 22px rgba(255,201,74,.45)}100%{transform:scale(1)}}
+@keyframes wob{0%{transform:rotate(0)}30%{transform:rotate(-18deg) scale(1.25)}60%{transform:rotate(12deg)}100%{transform:rotate(0)}}
+.logo{animation:logo 4s ease-in-out infinite;position:relative;overflow:hidden}
+.logo::after{content:"";position:absolute;top:0;bottom:0;width:30%;left:-40%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.55),transparent);animation:shine 4.5s ease-in-out infinite}
+@keyframes logo{0%,100%{transform:rotate(-1.5deg)}50%{transform:rotate(1deg) translateY(-2px)}}
+@keyframes shine{0%,60%{left:-40%}100%{left:130%}}
+#h-moneybar,#h-popbar{transition:width .35s cubic-bezier(.3,1.2,.5,1)}
+.bar i{background-image:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent);background-size:60px 100%;background-repeat:no-repeat;animation:barshine 2.4s linear infinite}
+@keyframes barshine{from{background-position:-60px 0}to{background-position:200px 0}}
+#h-moneybar{background-color:var(--gold)}#h-popbar{background-color:var(--teal)}
+button{transition:transform .12s,filter .15s,background .2s,border-color .2s}
+button:active:not(:disabled){transform:translateY(2px) scale(.97)}
+#open-menu:hover,#speed button:hover{filter:brightness(1.15)}
+#open-menu{animation:hudin .6s .3s backwards}
+.selcard{animation:hudin .5s backwards}
+.slot{transition:transform .15s,box-shadow .2s}.slot:hover{transform:translateY(-6px) scale(1.06)}
+.slot.on{animation:slot 1.6s ease-in-out infinite}
+@keyframes slot{50%{box-shadow:0 0 0 2px var(--coral),0 0 18px rgba(255,122,69,.6)}}
+#mode{transition:border-color .3s,background .3s}
+body.destroy #mode{animation:warn 1s ease-in-out infinite}
+@keyframes warn{50%{background:rgba(255,93,108,.3)}}
+body.destroy #vig{background:radial-gradient(ellipse at 50% 45%,transparent 45%,rgba(255,60,80,.28) 100%)}
+#mission{transform-origin:left top}#mission.fresh{animation:slidein .7s cubic-bezier(.2,1.2,.4,1)}
+@keyframes slidein{0%{opacity:0;transform:translateX(-60px) scale(.9)}60%{transform:translateX(8px)}100%{opacity:1;transform:none}}
+#mission .avatar{animation:avatar 1.8s ease-in-out infinite}
+@keyframes avatar{50%{transform:translateY(-4px) rotate(-6deg)}}
+.lvls li{transition:background .3s,color .3s,transform .3s}.lvls li.ok{transform:translateX(4px)}
+button#m-ok:not(:disabled){animation:cta 1.4s ease-in-out infinite}
+@keyframes cta{50%{box-shadow:0 3px 0 #b14b1f,0 0 20px rgba(255,122,69,.7)}}
+.timer{animation:tick 1s steps(2) infinite}@keyframes tick{50%{opacity:.7}}
+#info{animation:infoin .18s ease-out}@keyframes infoin{from{opacity:0;transform:translateX(14px)}}
+.toast{animation:toastin .45s cubic-bezier(.2,1.5,.4,1)}@keyframes toastin{0%{opacity:0;transform:translateY(-18px) scale(.8)}}
+.chip{animation:chip .5s cubic-bezier(.2,1.6,.4,1)}@keyframes chip{from{transform:scale(0)}}
+.chip.bad{animation:chip .5s,warn 1s ease-in-out infinite}
+/* menu */
+#menu.pop{animation:mfade .25s ease-out}#menu.pop #mpanel{animation:mpop .4s cubic-bezier(.2,1.2,.4,1)}
+@keyframes mfade{from{opacity:0}}@keyframes mpop{0%{opacity:0;transform:translateY(30px) scale(.94)}}
+#mbody.swap>*{animation:swap .35s cubic-bezier(.2,.9,.3,1) backwards}
+@keyframes swap{from{opacity:0;transform:translateY(12px)}}
+.tab{position:relative;transition:background .2s,color .2s,transform .15s}.tab:hover{transform:translateY(-2px)}.tab.on{animation:tabon .35s cubic-bezier(.3,1.6,.5,1)}
+@keyframes tabon{0%{transform:scale(.88)}}
+.card{animation:cardin .45s cubic-bezier(.2,1.2,.4,1) backwards;animation-delay:calc(var(--i,0)*22ms);transform:perspective(520px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg));transition:transform .15s ease-out,border-color .2s,box-shadow .2s}
+@keyframes cardin{from{opacity:0;transform:translateY(18px) scale(.85)}}
+.card:not(.locked):hover{box-shadow:0 10px 24px rgba(0,0,0,.4);z-index:2}
+.card.holo .foil{background-position:var(--fx,0%) 50%;animation:none;opacity:.5}
+.card.holo:not(:hover) .foil{animation:holo 3.4s linear infinite}
+.card.r4:not(.locked){box-shadow:0 0 16px rgba(255,201,74,.22)}.card.r3:not(.locked){box-shadow:0 0 12px rgba(176,140,255,.2)}
+.card .pic img{transition:transform .3s cubic-bezier(.3,1.5,.5,1)}.card:hover .pic img{transform:scale(1.18) translateY(-3px)}
+.theme{display:grid;grid-template-columns:46px 1fr auto;align-items:center;gap:2px 10px;transition:transform .15s,background .2s}
+.theme:hover{transform:translateX(4px);background:#22364d}
+.ticon{grid-row:1/3;width:46px;height:46px;border-radius:10px;background:linear-gradient(#cfe9f6,#e8f4d8);overflow:hidden;display:grid;place-items:center}.ticon img{width:46px;height:46px}
+.theme .bar,.theme small{grid-column:2/4}
+.theme.done .ticon{box-shadow:0 0 0 2px var(--teal)}
+.tinfo{display:flex;gap:12px;align-items:center}.tinfo p{margin:0}.ticon.big{width:64px;height:64px;flex:none}.ticon.big img{width:64px;height:64px}
+.albtop .bar.big i{transition:width .8s cubic-bezier(.3,1.2,.5,1)}
+.pack{transition:transform .2s,border-color .2s,box-shadow .2s}.pack:hover{transform:translateY(-6px);border-color:var(--coral);box-shadow:0 16px 34px rgba(0,0,0,.35)}
+.pack .art i{animation:float 3s ease-in-out infinite}.pack .art i:nth-child(2){animation-delay:-1s}.pack .art i:nth-child(3){animation-delay:-2s}
+@keyframes float{50%{translate:0 -8px}}
+.pack .art::after{content:"";position:absolute;inset:0;background:linear-gradient(110deg,transparent 35%,rgba(255,255,255,.5) 50%,transparent 65%);transform:translateX(-120%);animation:artshine 3.4s ease-in-out infinite}
+@keyframes artshine{60%,100%{transform:translateX(120%)}}
+.pack.shake{animation:shake .42s}.pack.shake .art{filter:brightness(1.4)}
+@keyframes shake{0%,100%{transform:none}15%{transform:rotate(-4deg) scale(1.04)}30%{transform:rotate(4deg) scale(1.06)}45%{transform:rotate(-5deg) scale(1.08)}60%{transform:rotate(5deg) scale(1.1)}80%{transform:scale(1.14)}}
+.pack .art{transition:filter .3s}
+/* révélation */
+#reveal{animation:mfade .3s}
+#rays{position:absolute;width:160vmax;height:160vmax;left:50%;top:50%;translate:-50% -50%;background:repeating-conic-gradient(from 0deg,rgba(255,201,74,.16) 0 7deg,transparent 7deg 20deg);animation:spin 40s linear infinite;mask-image:radial-gradient(circle,#000 0,transparent 55%);-webkit-mask-image:radial-gradient(circle,#000 0,transparent 55%);pointer-events:none}
+@keyframes spin{to{rotate:360deg}}
+#rcards,.rbtns{position:relative}
+.rcard{animation:deal .65s cubic-bezier(.2,1.3,.4,1) backwards;animation-delay:calc(var(--i,0)*100ms)}
+@keyframes deal{0%{opacity:0;transform:translateY(-120px) rotate(-30deg) scale(.4)}}
+.rcard:not(.flip):hover{transform:translateY(-10px) rotate(-2deg)}.rcard{transition:transform .2s}
+.rcard.flip.r4 .front{animation:glow4 1.6s ease-in-out infinite}.rcard.flip.r3 .front{animation:glow3 1.8s ease-in-out infinite}
+@keyframes glow4{50%{box-shadow:0 0 50px #ffc94a}}@keyframes glow3{50%{box-shadow:0 0 38px #8b63d6}}
+.rcard .new{animation:newb 1s ease-in-out infinite}@keyframes newb{50%{transform:scale(1.15) rotate(-3deg)}}
+/* nuit : l'UI reste lisible, la vignette se renforce */
+body{--night:0}
+@media (prefers-reduced-motion:reduce){.logo,.logo::after,.bar i{animation:none!important}}
+
+.theme.all{display:block;text-align:left}
+.rcard.flip.r3 .front::after,.rcard.flip.r4 .front::after{mix-blend-mode:overlay;opacity:.5;z-index:0}
+.rcard .front>*{position:relative;z-index:1}

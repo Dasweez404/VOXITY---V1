@@ -42,12 +42,26 @@ let flashT = 0;
 function flash(msg) { const n = performance.now(); if (n - flashT < 700) return; flashT = n; toast(msg, 'bad'); }
 
 /* ----- HUD ----- */
+const DV = { money: 0, pop: 0, votes: 0, album: 0, init: false }, HT = {}; let lastV = 0, lastP = 0, lastA = 0, accV = 0, vCool = 0;
+function bump(id) { const e = document.getElementById(id); if (!e) return; e.classList.remove('bump'); void e.offsetWidth; e.classList.add('bump'); }
+function setTxt(id, v) { if (HT[id] !== v) { HT[id] = v; document.getElementById(id).textContent = v; } }
+function animateHUD(dt) {
+  const tv = { money: S.money, pop: pop(), votes: S.votes, album: ownedCount() };
+  if (!DV.init) { Object.assign(DV, tv); DV.init = true; lastV = tv.votes; lastP = tv.pop; lastA = tv.album; }
+  const k = Math.min(1, dt * 9);
+  for (const key of ['money', 'pop', 'votes', 'album']) { let d = DV[key]; d += (tv[key] - d) * k; if (Math.abs(tv[key] - d) < .5) d = tv[key]; DV[key] = d; }
+  setTxt('h-money', fmt(DV.money)); setTxt('h-pop', fmt(DV.pop)); setTxt('h-votes', fmt(DV.votes)); setTxt('h-album', String(Math.round(DV.album)));
+  if (tv.votes > lastV) accV += tv.votes - lastV; vCool -= dt;
+  if (accV >= 1 && vCool <= 0) { const r = $('#st-votes').getBoundingClientRect(); floatAt(r.left + r.width / 2, r.bottom - 4, '+' + fmt(accV), 'vote'); bump('st-votes'); accV = 0; vCool = .45; }
+  if (tv.pop - lastP >= 1) bump('st-pop'); if (tv.album > lastA) bump('st-album');
+  lastV = tv.votes; lastP = tv.pop; lastA = tv.album;
+}
 let hudKey = '';
 function refreshHUD() {
   const p = pop(), inc = income();
-  $('#h-money').textContent = fmt(S.money); $('#h-cap').textContent = '/ ' + fmt(tot.capM); $('#h-inc').textContent = '+' + f1(inc) + ' $/s';
-  $('#h-pop').textContent = fmt(p); $('#h-popcap').textContent = '/ ' + fmt(tot.capH); $('#h-pres').textContent = `${prestige.n} ×${prestige.m}`;
-  $('#h-votes').textContent = fmt(S.votes); $('#h-album').textContent = `${ownedCount()}`; $('#h-albumt').textContent = '/ ' + TOTAL;
+  $('#h-cap').textContent = '/ ' + fmt(tot.capM); $('#h-inc').textContent = '+' + f1(inc) + ' $/s';
+  $('#h-popcap').textContent = '/ ' + fmt(tot.capH); $('#h-pres').textContent = `${prestige.n} ×${prestige.m}`;
+  $('#h-albumt').textContent = '/ ' + TOTAL;
   $('#h-moneybar').style.width = clamp(S.money / tot.capM * 100, 0, 100) + '%'; $('#h-popbar').style.width = clamp(p / tot.capH * 100, 0, 100) + '%';
   document.body.classList.toggle('destroy', S.destroy);
   $('#mode').innerHTML = S.destroy ? '<b>Destruction</b> <i>Tab pour construire</i>' : '<b>Construction</b> <i>Tab pour détruire</i>';
@@ -118,6 +132,7 @@ function refreshMission() {
   const { lv } = missionLevel(), t = T[m.tile], left = Math.max(0, m.until - now());
   const k = [m.id, lv, Math.ceil(left)].join('|'); if (k === missKey) return; missKey = k;
   const owned = S.owned.has(t.id), bn = BONUSES[m.bonus];
+  const fresh = box.hidden || box.dataset.id != m.id; box.dataset.id = m.id;
   box.hidden = false;
   box.innerHTML = `<div class="mhead"><span class="avatar" style="--h:${m.hue}">${esc(m.name[0])}</span><div><b>${esc(m.name)}</b><span>${esc(m.job)}${m.anti >= 0 ? ' · déteste ' + esc(D.themes[m.anti]) : ''}</span></div><span class="timer">${Math.floor(left / 60)}:${String(Math.ceil(left % 60) % 60).padStart(2, '0')}</span></div>
     <p>« Je cherche <b>${NOUN[m.sub]}</b>. »</p>
@@ -126,20 +141,21 @@ function refreshMission() {
     <li class="${lv >= 3 ? 'ok' : ''}"><i>Tuile exacte</i> ${esc(t.name)} ${owned ? '' : '<em>(pas encore dans l\'Album)</em>'}</li></ol>
     <div class="mfoot"><span class="bn">Bonus : ${esc(bn.n)}</span><button id="m-ok" ${lv ? '' : 'disabled'}>Accueillir${lv ? ' (niv. ' + lv + ')' : ''}</button></div>`;
   $('#m-ok').onclick = welcome;
+  if (fresh) { box.classList.remove('fresh'); void box.offsetWidth; box.classList.add('fresh'); }
 }
 
 /* ===== MENU ===== */
 const U = { tab: 'build', bCat: -1, bSub: '', bTheme: -1, bQ: '', bSort: 'cat', bLim: 90, aCat: -1, aSub: '', aTheme: -1, aQ: '', aOwn: 'all', aLim: 90, packCat: 0, packTheme: 0 };
 const TABS = [['build', 'Construire'], ['album', 'Album'], ['packs', 'Packs'], ['people', 'Habitants'], ['help', 'Aide']];
 menuOpen = () => !$('#menu').hidden;
-function openMenu(tab) { if (tab) U.tab = tab; $('#menu').hidden = false; renderMenu(); }
+function openMenu(tab) { if (tab) U.tab = tab; const m = $('#menu'); m.hidden = false; m.classList.remove('pop'); void m.offsetWidth; m.classList.add('pop'); renderMenu(); sfx('click'); }
 function closeMenu() { $('#menu').hidden = true; }
 function toggleMenu() { menuOpen() ? closeMenu() : openMenu(); }
 
 function renderMenu() {
   const tabs = $('#tabs'); tabs.innerHTML = '';
   TABS.forEach(([id, n]) => { const b = el('button', 'tab' + (U.tab === id ? ' on' : ''), n); b.onclick = () => { U.tab = id; renderMenu(); sfx('click'); }; tabs.appendChild(b); });
-  const body = $('#mbody'); body.innerHTML = '';
+  const body = $('#mbody'); body.innerHTML = ''; body.classList.remove('swap'); void body.offsetWidth; body.classList.add('swap');
   ({ build: renderBuild, album: renderAlbum, packs: renderPacks, people: renderPeople, help: renderHelp })[U.tab](body);
 }
 function refreshMenuLive() {
@@ -178,7 +194,7 @@ function statLine(t) {
   return a.join(' · ');
 }
 function gridInto(parent, list, lim, onMore, o) {
-  const g = el('div', 'grid'); list.slice(0, lim).forEach(t => g.appendChild(tileCard(t, o))); parent.appendChild(g);
+  const g = el('div', 'grid'); list.slice(0, lim).forEach((t, i) => { const c = tileCard(t, o); c.style.setProperty('--i', Math.min(i, 30)); g.appendChild(c); }); parent.appendChild(g);
   if (list.length > lim) { const b = el('button', 'more', `Afficher plus (${list.length - lim})`); b.onclick = onMore; parent.appendChild(b); }
   if (!list.length) parent.appendChild(el('p', 'empty', 'Aucune tuile ne correspond à ces filtres.'));
 }
@@ -212,11 +228,12 @@ function renderAlbum(body) {
   const top = el('div', 'albtop', `<div><b>${ownedCount()}</b> / ${TOTAL} stickers <span class="mut">· ${agg.done} / ${D.themes.length} thèmes complets</span></div><div class="bar big"><i style="width:${pct}%"></i></div>`); body.appendChild(top);
   const cols = el('div', 'albcols'); body.appendChild(cols);
   const left = el('div', 'themes scroll'); cols.appendChild(left);
-  const all = el('button', 'theme' + (U.aTheme < 0 ? ' on' : ''), '<b>Tous les thèmes</b>'); all.onclick = () => { U.aTheme = -1; U.aLim = 90; renderMenu(); }; left.appendChild(all);
+  const all = el('button', 'theme all' + (U.aTheme < 0 ? ' on' : ''), '<b>Tous les thèmes</b>'); all.onclick = () => { U.aTheme = -1; U.aLim = 90; renderMenu(); }; left.appendChild(all);
   D.themes.map((n, i) => i).sort((a, b) => D.themes[a].localeCompare(D.themes[b], 'fr')).forEach(i => {
     const b = D.themeBonus[i], done = ob[i] >= b.n, w = el('button', 'theme' + (U.aTheme === i ? ' on' : '') + (done ? ' done' : ''));
     w.style.setProperty('--hue', Math.round(themeHue(i) * 360));
-    w.innerHTML = `<b>${esc(D.themes[i])}</b><span>${ob[i]}/${b.n}</span><div class="bar"><i style="width:${ob[i] / b.n * 100}%"></i></div><small class="${done ? 'got' : ''}">${bonusLabel(b)}</small>`;
+    w.innerHTML = `<div class="ticon"></div><b>${esc(D.themes[i])}</b><span>${ob[i]}/${b.n}</span><div class="bar"><i style="width:${ob[i] / b.n * 100}%"></i></div><small class="${done ? 'got' : ''}">${bonusLabel(b)}</small>`;
+    w.querySelector('.ticon').appendChild(thumbImg(sigTile(i)));
     w.onclick = () => { U.aTheme = i; U.aLim = 90; renderMenu(); }; left.appendChild(w);
   });
   const right = el('div', 'albright'); cols.appendChild(right);
@@ -231,7 +248,7 @@ function renderAlbum(body) {
   const list = T.filter(t => !t.ult && (U.aCat < 0 || t.cat === U.aCat) && (!U.aSub || t.subs.includes(U.aSub)) && (U.aTheme < 0 || t.theme === U.aTheme) &&
     (U.aOwn === 'all' || (U.aOwn === 'own' && S.owned.has(t.id)) || (U.aOwn === 'miss' && !S.owned.has(t.id)) || (U.aOwn === 'holo' && S.everPlaced.has(t.id))) &&
     (!qq || (S.owned.has(t.id) && (t.name + ' ' + t.sub).toLowerCase().includes(qq)))).sort((a, b) => b.s - a.s || a.name.localeCompare(b.name, 'fr'));
-  if (U.aTheme >= 0) { const b = D.themeBonus[U.aTheme]; right.appendChild(el('p', 'tinfo', `<b>${esc(D.themes[U.aTheme])}</b> — complétez ces ${b.n} stickers pour gagner : <b>${bonusLabel(b)}</b>`)); }
+  if (U.aTheme >= 0) { const b = D.themeBonus[U.aTheme]; const ti = el('div', 'tinfo', `<div class="ticon big"></div><p><b>${esc(D.themes[U.aTheme])}</b><br>Complétez ces ${b.n} stickers pour gagner : <b>${bonusLabel(b)}</b></p>`); ti.querySelector('.ticon').appendChild(thumbImg(sigTile(U.aTheme))); right.appendChild(ti); }
   const wrap = el('div', 'scroll'); right.appendChild(wrap);
   gridInto(wrap, list, U.aLim, () => { U.aLim += 120; renderMenu(); }, { stats: true });
   const ult = T[ULT];
@@ -251,7 +268,11 @@ function renderPacks(body) {
     c.innerHTML = `<div class="art"><i></i><i></i><i></i></div><h3>${title}</h3><p>${desc}</p>`;
     if (ctrl) c.appendChild(ctrl);
     const b = el('button', 'packbtn', `Ouvrir · ${price} votes`); b.dataset.price = price; b.disabled = S.votes < price;
-    b.onclick = () => { const out = drawPack(kind, key()); if (!out) { toast(S.votes < price ? 'Pas assez de votes.' : 'Plus aucun sticker dans cette sélection.', 'bad'); return; } showReveal(out); };
+    b.onclick = () => {
+      if (S.votes < price) { toast('Pas assez de votes.', 'bad'); return; }
+      c.classList.add('shake'); sfx('click'); b.disabled = true;
+      setTimeout(() => { c.classList.remove('shake'); const out = drawPack(kind, key()); if (!out) { toast('Plus aucun sticker dans cette sélection.', 'bad'); return; } showReveal(out); }, 420);
+    };
     c.appendChild(b); w.appendChild(c);
   };
   mk('std', 'Pack Classique', '5 stickers au hasard parmi ceux qui vous manquent. Les ★★★★ sont rares.', null, () => 0);
@@ -264,9 +285,9 @@ function showReveal(cards) {
   const ov = $('#reveal'), row = $('#rcards'); ov.hidden = false; row.innerHTML = ''; let flipped = 0;
   $('#r-close').hidden = true;
   cards.forEach((t, i) => {
-    const c = el('div', 'rcard r' + t.s); c.style.setProperty('--cc', CATC[t.cat]);
+    const c = el('div', 'rcard r' + t.s); c.style.setProperty('--cc', CATC[t.cat]); c.style.setProperty('--i', i);
     c.innerHTML = `<div class="in"><div class="back"><span>VOXITY</span></div><div class="front"><div class="pic"></div><div class="nm">${esc(t.name)}</div><div class="meta">${stars(t)}<span>${esc(t.sub.split(',')[0])}</span></div><div class="th">${t.theme >= 0 ? esc(D.themes[t.theme]) : ''}</div><div class="new">NOUVEAU</div></div></div>`;
-    const flip = () => { if (c.classList.contains('flip')) return; c.classList.add('flip'); c.querySelector('.pic').appendChild(thumbImg(t)); sfx('click'); if (++flipped === cards.length) { $('#r-close').hidden = false; } };
+    const flip = () => { if (c.classList.contains('flip')) return; c.classList.add('flip'); c.querySelector('.pic').appendChild(thumbImg(t)); sfx(t.s >= 3 ? 'rare' : 'click'); if (t.s >= 3) setTimeout(() => { const r = c.getBoundingClientRect(); confetti(r.left + r.width / 2, r.top + r.height / 2, t.s >= 4 ? 90 : 40, t.s >= 4 ? ['#ffc94a', '#fff0a8', '#ff7a45'] : ['#b08cff', '#8fd3ff', '#ff7ad9']); if (t.s >= 4) flashScreen('#ffc94a'); }, 300); if (++flipped === cards.length) { $('#r-close').hidden = false; } };
     c.onclick = flip; c._flip = flip; row.appendChild(c);
   });
   $('#r-all').onclick = () => [...row.children].forEach((c, i) => setTimeout(c._flip, i * 140));
@@ -325,6 +346,9 @@ function showWin() {
 }
 
 function buildUI() {
+  const mb = $('#mbody');
+  mb.addEventListener('pointermove', e => { const c = e.target.closest && e.target.closest('.card:not(.locked)'); if (!c) return; const r = c.getBoundingClientRect(), x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height; c.style.setProperty('--ry', ((x - .5) * 14) + 'deg'); c.style.setProperty('--rx', ((.5 - y) * 12) + 'deg'); c.style.setProperty('--fx', (x * 100) + '%'); });
+  mb.addEventListener('pointerout', e => { const c = e.target.closest && e.target.closest('.card'); if (c) { c.style.setProperty('--ry', '0deg'); c.style.setProperty('--rx', '0deg'); } });
   $('#menu-close').onclick = closeMenu; $('#menu').addEventListener('pointerdown', e => { if (e.target.id === 'menu') closeMenu(); });
   $('#open-menu').onclick = () => toggleMenu();
   document.querySelectorAll('#speed button').forEach(b => b.onclick = () => { S.speed = +b.dataset.s; uiDirty = true; });
@@ -332,4 +356,4 @@ function buildUI() {
   $('#mode').onclick = () => { S.destroy = !S.destroy; uiDirty = true; };
   refreshHUD();
 }
-window.__game = { get S() { return S; }, T, placed, evaluate, place, destroyAt, drawPack, spawnMission, welcome, thumb, tick, recalc, get tot() { return tot; }, get agg() { return agg; }, cam, updateCamera, openMenu, selectTile, missionLevel, income, pop };
+window.__game = { forcePlace: (id, x, y) => { const rec = { t: id, x, y, rot: 0, h: 0, m: 0, paid: 0 }; placed.set(keyOf(x, y), rec); addObj(rec, false); }, sigTile, D, burst, confetti, banner, cits,  get S() { return S; }, T, placed, evaluate, place, destroyAt, drawPack, spawnMission, welcome, thumb, tick, recalc, get tot() { return tot; }, get agg() { return agg; }, cam, updateCamera, openMenu, selectTile, missionLevel, income, pop };

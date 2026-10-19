@@ -14,6 +14,11 @@ Ouvrir `index.html` dans un navigateur (connexion requise pour charger Three.js 
 | Mode destruction | Tab |
 | Pivoter / tuiles récentes | Q, E / 1 à 8 |
 
+## Visuels
+- 71 tuiles signature, une par thème (`src/themes.js`), utilisées pour les tuiles de la catégorie dominante du thème. Chaque thème a aussi son emblème dans l'Album.
+- Habitants en pavés verticaux à grosse tête cubique qui sautillent et parcourent les cases marchables (colonne « Is Not Walkable » de l'Excel) et l'herbe autour de la ville (`src/fx.js`).
+- Retours visuels : particules, anneaux, colonnes de lumière, secousses, textes flottants, confettis, bannières, compteurs animés, cycle jour/nuit, nuages, bateaux, fumées d'usine.
+
 ## Contenu
 - `VOXITY_-_ASSETS_equilibre.xlsx` : l'Excel d'origine avec toutes les colonnes de valeurs remplies (coût, habitants, argent, plafonds, malus, bonus, portée, points de vote) pour les 1 977 tuiles.
 - `tools/gen_data.py` : calcule l'équilibrage depuis l'Excel (`python3 tools/gen_data.py <xlsx source> <xlsx sortie> tools/data.json`).

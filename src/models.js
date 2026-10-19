@@ -177,7 +177,7 @@ function mkProd(g, P, t) {
     wall(g, 0x9aa5b4, .8, .32, .6, 0, .04, .1, 1, 4);
     for (let i = 0; i < 3; i++) gable(g, 0x6c7886, .26, .14, .6, -.27 + i * .27, .36, .1);
     cy(g, 0xa85a46, .06, .7, -.28, .04, -.28); cy(g, 0xa85a46, .06, .55, -.08, .04, -.3);
-    sp(g, 0xe6e9ee, .09, -.28, .82, -.28); sp(g, 0xf3f5f7, .07, -.24, .94, -.24);
+    smoke(g, -.28, .78, -.28); smoke(g, -.08, .62, -.3);
   } else {
     slab(g, 0xd9e1ea);
     put(g, G.hemi, glass(0x8fd5ef), .34, .34, .34, 0, .04, 0); bx(g, 0xe9eef2, .4, .18, .22, -.15, .04, .32).rotation.y = .3;
@@ -278,6 +278,7 @@ function buildModel(t) {
   const P = { wall: hsl(h0, .36, .8), roof: hsl(h0 + .02, .55, .42), acc: hsl(h0 + .5, .6, .55), hue: h0, s: t.s, r, name: t.name.toLowerCase(), model: t.model.toLowerCase(), sub: t.subs[0] };
   t.themeName = t.theme >= 0 ? D.themes[t.theme] : '';
   if (t.ult) mkUltimate(g, P);
+  else if (useSig(t)) { try { SIG[t.themeName](g, P, t); } catch (e) { console.warn('SIG', t.themeName, e); [mkHouse, mkShop, mkFun, mkProd, mkService, mkRoad][t.cat](g, P, t); } }
   else [mkHouse, mkShop, mkFun, mkProd, mkService, mkRoad][t.cat](g, P, t);
   return g;
 }

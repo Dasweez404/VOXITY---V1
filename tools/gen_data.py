@@ -58,7 +58,7 @@ for r in rows:
             bM=bH=round(.006*(1+s),3)
     cost=max(3,round(cost)); money=round(money,2)
     data.append(dict(model=model,name=name,cat=cat,sub=sub,theme=theme,rar=rar,s=s,cost=cost,hab=hab,money=money,
-        capH=capH,capM=capM,mH=mH,mM=mM,bM=bM,bH=bH,rng=RANGE[s],vote=vote,rlock=rlock,subs=subs))
+        capH=capH,capM=capM,mH=mH,mM=mM,bM=bM,bH=bH,rng=RANGE[s],vote=vote,rlock=rlock,subs=subs,nowalk=bool(nowalk)))
     # écriture dans l'Excel
     vals={'Coût':cost,'Habitants rapportés':hab or None,'Argent rapporté':money or None,"Limite d'habitant augmenté":capH or None,
           "Limite d'argent augmenté":capM or None,'Malus Habitant':mH or None,'Malus Argent':mM or None,
@@ -80,7 +80,7 @@ for i,t in enumerate(themes):
 cats=['Habitations','Commerces','Loisirs','Productions','Services','Routes']
 d=dict(cats=cats,themes=themes,themeBonus=tb,
   tiles=[[x['model'],x['name'],CATS[x['cat']],x['sub'],themes.index(x['theme']) if x['theme']!='#HILL#' else -1,x['s'],x['cost'],x['hab'],x['money'],
-   x['capH'],x['capM'],x['mH'],x['mM'],x['bM'],x['bH'],x['vote'],x['rlock']] for x in data])
+   x['capH'],x['capM'],x['mH'],x['mM'],x['bM'],x['bH'],x['vote'],x['rlock'],0 if x['nowalk'] else 1] for x in data])
 json.dump(d,open(out_json,'w'),ensure_ascii=False,separators=(',',':'))
 print(len(data),len(themes))
 import collections
