@@ -31,5 +31,8 @@ const D = /*DATA*/;
 /*MODELS*/
 /*GAME*/
 /*UI*/
-boot();
+try { boot(); } catch (e) {
+  console.error(e);
+  try { localStorage.removeItem('voxity_save_v2'); if (!sessionStorage.getItem('vx_retry')) { sessionStorage.setItem('vx_retry', '1'); location.reload(); } } catch (e2) { }
+}
 </script>

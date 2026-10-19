@@ -655,7 +655,8 @@ const BONUSES = [
 const MALUS = [{ id: 'strike', n: 'Grève', d: 'Revenus de pose −50 %' }, { id: 'press', n: 'Mauvaise presse', d: 'Plus de votes' }, { id: 'tax', n: 'Taxe exceptionnelle', d: 'Coûts +40 %' }];
 
 /* ===== ÉTAT ===== */
-const SAVEKEY = 'voxity_save_v1';
+const SAVEKEY = 'voxity_save_v2', SIG_ = T.length + ':' + T[0].model + ':' + T[T.length - 2].model;
+try { localStorage.removeItem('voxity_save_v1'); } catch (e) { }
 let S, placed = new Map(), agg, tot, prestige;
 const keyOf = (x, y) => x + y * N;
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
@@ -665,7 +666,7 @@ function newState() {
 }
 function save() {
   try {
-    localStorage.setItem(SAVEKEY, JSON.stringify({ v: 1, money: S.money, votes: S.votes, owned: [...S.owned], peak: S.peak, packs: S.packs, time: S.time, rot: S.rot, sel: S.sel, recent: S.recent,
+    localStorage.setItem(SAVEKEY, JSON.stringify({ v: 2, sig: SIG_, money: S.money, votes: S.votes, owned: [...S.owned], peak: S.peak, packs: S.packs, time: S.time, rot: S.rot, sel: S.sel, recent: S.recent,
       ever: [...S.everPlaced], mission: S.mission, nextMission: S.nextMission, residents: S.residents, archive: S.archive, buffs: S.buffs, malus: S.malus, speed: S.speed, won: S.won, uid: S.uid, cellMax: S.cellMax, allHints: S.allHints, lastGain: S.lastGain, subsidyAt: S.subsidyAt,
       placed: [...placed.values()].map(r => [r.t, r.x, r.y, r.rot, r.h, r.m, r.paid]) }));
   } catch (e) { }
@@ -673,7 +674,7 @@ function save() {
 function load() {
   S = newState();
   try {
-    const j = JSON.parse(localStorage.getItem(SAVEKEY) || 'null'); if (!j) return false;
+    const j = JSON.parse(localStorage.getItem(SAVEKEY) || 'null'); if (!j || j.v !== 2 || j.sig !== SIG_ || j.placed.some(a => !T[a[0]]) || j.owned.some(i => !T[i])) return false;
     Object.assign(S, { money: j.money, votes: j.votes, owned: new Set(j.owned), peak: j.peak, packs: j.packs, time: j.time, rot: j.rot, sel: j.sel, recent: j.recent || [], everPlaced: new Set(j.ever),
       mission: j.mission, nextMission: j.nextMission, residents: j.residents || [], archive: j.archive || [], buffs: j.buffs || [], malus: j.malus, speed: j.speed || 1, won: j.won, uid: j.uid || 1, cellMax: j.cellMax || {}, allHints: !!j.allHints, lastGain: j.lastGain || 0, subsidyAt: j.subsidyAt || 0, seenIntro: true });
     j.placed.forEach(a => placed.set(keyOf(a[1], a[2]), { t: a[0], x: a[1], y: a[2], rot: a[3], h: a[4], m: a[5], paid: a[6] }));
@@ -1764,5 +1765,8 @@ function buildUI() {
 }
 window.__game = { iBody, get citRatio() { return citRatio; }, openTray, closeTray, avgRev,  forcePlace: (id, x, y) => { const rec = { t: id, x, y, rot: 0, h: 0, m: 0, paid: 0 }; placed.set(keyOf(x, y), rec); addObj(rec, false); }, sigTile, D, burst, confetti, banner, cits,  get S() { return S; }, T, placed, evaluate, place, destroyAt, drawPack, spawnMission, welcome, thumb, tick, recalc, get tot() { return tot; }, get agg() { return agg; }, cam, updateCamera, openMenu, selectTile, missionLevel, pop };
 
-boot();
+try { boot(); } catch (e) {
+  console.error(e);
+  try { localStorage.removeItem('voxity_save_v2'); if (!sessionStorage.getItem('vx_retry')) { sessionStorage.setItem('vx_retry', '1'); location.reload(); } } catch (e2) { }
+}
 </script>
