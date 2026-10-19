@@ -20,7 +20,15 @@ function winTex() {
   return _winTex;
 }
 const wallMats = {};
-const wallMat = c => wallMats[c] || (wallMats[c] = new THREE.MeshLambertMaterial({ color: c, map: winTex() }));
+let _winEm = null;
+function winEm() {
+  if (_winEm) return _winEm;
+  const c = document.createElement('canvas'); c.width = c.height = 32; const x = c.getContext('2d');
+  x.fillStyle = '#000'; x.fillRect(0, 0, 32, 32); x.fillStyle = '#ffd98a'; x.fillRect(7, 8, 18, 15);
+  _winEm = new THREE.CanvasTexture(c); _winEm.wrapS = _winEm.wrapT = THREE.RepeatWrapping; _winEm.magFilter = THREE.NearestFilter;
+  return _winEm;
+}
+const wallMat = c => wallMats[c] || (wallMats[c] = new THREE.MeshLambertMaterial({ color: c, map: winTex(), emissive: 0x000000, emissiveMap: winEm() }));
 const wallGeos = {};
 function wallGeo(cols, rows) {
   const k = cols + '_' + rows;

@@ -297,3 +297,7 @@ body{--night:0}
 .pack small{color:var(--mut)}
 .pack .bar i{background-color:var(--pc)}
 @media (max-width:700px){#tr-q{width:100%}}
+
+.mk{font-family:var(--f-d);letter-spacing:.08em;color:var(--ink)}
+.hintnote{margin:-2px 0 8px!important;font-size:12px!important;color:var(--mut)}
+.chk{display:flex;gap:8px;align-items:flex-start;margin:0 0 12px;cursor:pointer}.chk input{margin-top:3px;accent-color:var(--coral);width:16px;height:16px}.chk small{display:block;color:var(--mut)}

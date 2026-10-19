@@ -20,6 +20,9 @@ Ouvrir `index.html` dans un navigateur (connexion requise pour charger Three.js 
 - L'argent ne se gagne qu'à la pose d'une tuile (commerces, loisirs, productions), jamais avec le temps. Les habitations ne rapportent rien seules. Sur une même case, remplacer une tuile ne rapporte que la différence avec le meilleur gain déjà perçu.
 - Les packs se choisissent par catégorie uniquement (5 stickers manquants de la catégorie).
 
+- Les habitants spéciaux demandent toujours une tuile déjà débloquée. Le thème et la tuile exacte ne sont donnés qu'en lettres masquées qui se dévoilent avec le temps ; l'option « Savoir tous les indices » (menu Aide) les affiche en entier.
+- Un pavé marcheur par habitant réel (jusqu'à 600, au-delà un pavé représente plusieurs habitants, indiqué dans le HUD). Ils ne traversent pas les tuiles non marchables et ne se superposent pas (4 emplacements par case).
+
 ## Visuels
 - 71 tuiles signature, une par thème (`src/themes.js`), utilisées pour les tuiles de la catégorie dominante du thème. Chaque thème a aussi son emblème dans l'Album.
 - Habitants en pavés verticaux à grosse tête cubique qui sautillent et parcourent les cases marchables (colonne « Is Not Walkable » de l'Excel) et l'herbe autour de la ville (`src/fx.js`).

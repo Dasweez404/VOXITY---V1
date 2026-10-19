@@ -60,7 +60,7 @@ let hudKey = '';
 function refreshHUD() {
   const p = pop();
   $('#h-cap').textContent = '/ ' + fmt(tot.capM); $('#h-inc').textContent = S.lastGain ? 'dernière pose +' + fmt(S.lastGain) + ' $' : 'gagné à chaque pose';
-  $('#h-popcap').textContent = '/ ' + fmt(tot.capH); $('#h-pres').textContent = `${prestige.n} ×${prestige.m}`;
+  $('#h-popcap').textContent = '/ ' + fmt(tot.capH); $('#h-pres').textContent = `${prestige.n} ×${prestige.m}`; $('#st-pop .sub span:first-child').textContent = citRatio > 1 ? `Habitants · 1 pavé = ${citRatio}` : 'Habitants';
   $('#h-albumt').textContent = '/ ' + TOTAL;
   $('#h-moneybar').style.width = clamp(S.money / tot.capM * 100, 0, 100) + '%'; $('#h-popbar').style.width = clamp(p / tot.capH * 100, 0, 100) + '%';
   document.body.classList.toggle('destroy', S.destroy);
@@ -126,19 +126,30 @@ function infoFor(t, ev, c) {
 
 /* ----- mission en cours ----- */
 let missKey = '';
+/* indices implicites : lettres dévoilées peu à peu, sauf si « savoir tous les indices » est coché */
+function maskText(str, seed, frac) {
+  let w = 0, out = '';
+  [...str].forEach((ch, i) => {
+    if (!/[\p{L}\p{N}]/u.test(ch)) { out += ch; w = 0; return; }
+    out += (w === 0 || (hash32(seed + str + i) % 1000) / 1000 < frac) ? ch : '·'; w++;
+  });
+  return out;
+}
 function refreshMission() {
   const m = S.mission, box = $('#mission');
   if (!m) { if (missKey) { missKey = ''; box.hidden = true; } return; }
-  const { lv } = missionLevel(), t = T[m.tile], left = Math.max(0, m.until - now());
-  const k = [m.id, lv, Math.ceil(left)].join('|'); if (k === missKey) return; missKey = k;
-  const owned = S.owned.has(t.id), bn = BONUSES[m.bonus];
+  const { lv } = missionLevel(), t = T[m.tile], left = Math.max(0, m.until - now()), el_ = 240 - left;
+  const step = Math.floor(el_ / 15), k = [m.id, lv, Math.ceil(left), S.allHints].join('|'); if (k === missKey) return; missKey = k;
+  const bn = BONUSES[m.bonus], f = clamp(step / 16 * .55, 0, .55), all = S.allHints;
+  const th = all ? D.themes[m.theme] : maskText(D.themes[m.theme], 'th' + m.id, f), tn = all ? t.name : maskText(t.name, 'tl' + m.id, f * .8);
   const fresh = box.hidden || box.dataset.id != m.id; box.dataset.id = m.id;
   box.hidden = false;
   box.innerHTML = `<div class="mhead"><span class="avatar" style="--h:${m.hue}">${esc(m.name[0])}</span><div><b>${esc(m.name)}</b><span>${esc(m.job)}${m.anti >= 0 ? ' · déteste ' + esc(D.themes[m.anti]) : ''}</span></div><span class="timer">${Math.floor(left / 60)}:${String(Math.ceil(left % 60) % 60).padStart(2, '0')}</span></div>
-    <p>« Je cherche <b>${NOUN[m.sub]}</b>. »</p>
+    <p>« Je cherche <b>${NOUN[m.sub]}</b>… dans un style que vous devinerez. »</p>
     <ol class="lvls"><li class="${lv >= 1 ? 'ok' : ''}"><i>Sous-catégorie</i> ${esc(m.sub)}</li>
-    <li class="${lv >= 2 ? 'ok' : ''}"><i>Thème</i> ${esc(D.themes[m.theme])}</li>
-    <li class="${lv >= 3 ? 'ok' : ''}"><i>Tuile exacte</i> ${esc(t.name)} ${owned ? '' : '<em>(pas encore dans l\'Album)</em>'}</li></ol>
+    <li class="${lv >= 2 ? 'ok' : ''}"><i>Thème</i> <span class="mk">${esc(th)}</span></li>
+    <li class="${lv >= 3 ? 'ok' : ''}"><i>Tuile exacte</i> <span class="mk">${esc(tn)}</span></li></ol>
+    ${all ? '' : '<p class="hintnote">Les lettres se dévoilent avec le temps. Elle est déjà dans votre collection.</p>'}
     <div class="mfoot"><span class="bn">Bonus : ${esc(bn.n)}</span><button id="m-ok" ${lv ? '' : 'disabled'}>Accueillir${lv ? ' (niv. ' + lv + ')' : ''}</button></div>`;
   $('#m-ok').onclick = welcome;
   if (fresh) { box.classList.remove('fresh'); void box.offsetWidth; box.classList.add('fresh'); }
@@ -336,9 +347,11 @@ function renderHelp(body) {
   <li><b>Thème complet</b> : bonus permanent additif (Attractivité, Rendement, Popularité, Économie, Portée).</li>
   <li><b>Objectif</b> : compléter l'Album (${TOTAL} stickers) puis placer la Tour Voxity.</li></ul></div>
   <div class="hcol"><h3>Partie</h3><p>Vitesse du temps (missions, bonus, jour et nuit)</p><div id="speed2" class="speedrow"></div>
+  <label class="chk"><input type="checkbox" id="hints"> Savoir tous les indices <small>(affiche le thème et la tuile exacte demandés)</small></label>
   <p class="mut">Sauvegarde automatique dans ce navigateur.</p><button id="reset" class="danger">Réinitialiser la partie</button></div>`;
   body.appendChild(w);
   const sp = w.querySelector('#speed2'); [1, 2, 5, 10].forEach(s => { const b = el('button', S.speed === s ? 'on' : '', '×' + s); b.onclick = () => { S.speed = s; renderMenu(); }; sp.appendChild(b); });
+  const hc = w.querySelector('#hints'); hc.checked = !!S.allHints; hc.onchange = () => { S.allHints = hc.checked; missKey = ''; uiDirty = true; };
   const rs = w.querySelector('#reset'); let armed = 0;
   rs.onclick = () => { if (!armed) { armed = 1; rs.textContent = 'Cliquez encore pour confirmer'; setTimeout(() => { armed = 0; rs.textContent = 'Réinitialiser la partie'; }, 4000); } else { try { localStorage.removeItem(SAVEKEY); } catch (e) { } removeEventListener('beforeunload', save); location.reload(); } };
 }
@@ -362,4 +375,4 @@ function buildUI() {
   $('#mode').onclick = () => { S.destroy = !S.destroy; uiDirty = true; };
   refreshHUD();
 }
-window.__game = { openTray, closeTray, avgRev,  forcePlace: (id, x, y) => { const rec = { t: id, x, y, rot: 0, h: 0, m: 0, paid: 0 }; placed.set(keyOf(x, y), rec); addObj(rec, false); }, sigTile, D, burst, confetti, banner, cits,  get S() { return S; }, T, placed, evaluate, place, destroyAt, drawPack, spawnMission, welcome, thumb, tick, recalc, get tot() { return tot; }, get agg() { return agg; }, cam, updateCamera, openMenu, selectTile, missionLevel, pop };
+window.__game = { iBody, get citRatio() { return citRatio; }, openTray, closeTray, avgRev,  forcePlace: (id, x, y) => { const rec = { t: id, x, y, rot: 0, h: 0, m: 0, paid: 0 }; placed.set(keyOf(x, y), rec); addObj(rec, false); }, sigTile, D, burst, confetti, banner, cits,  get S() { return S; }, T, placed, evaluate, place, destroyAt, drawPack, spawnMission, welcome, thumb, tick, recalc, get tot() { return tot; }, get agg() { return agg; }, cam, updateCamera, openMenu, selectTile, missionLevel, pop };

@@ -32,13 +32,13 @@ let S, placed = new Map(), agg, tot, prestige;
 const keyOf = (x, y) => x + y * N;
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 function newState() {
-  return { money: 250, cellMax: {}, lastGain: 0, subsidyAt: 0, votes: 20, owned: new Set(T.filter(t => t.s === 0 && !t.ult).map(t => t.id)), peak: 0, packs: 0, time: 0, rot: 0, sel: -1, recent: [], everPlaced: new Set(),
+  return { money: 250, cellMax: {}, allHints: false, lastGain: 0, subsidyAt: 0, votes: 20, owned: new Set(T.filter(t => t.s === 0 && !t.ult).map(t => t.id)), peak: 0, packs: 0, time: 0, rot: 0, sel: -1, recent: [], everPlaced: new Set(),
     mission: null, nextMission: 70, residents: [], archive: [], buffs: [], malus: null, speed: 1, won: false, uid: 1, destroy: false, seenIntro: false };
 }
 function save() {
   try {
     localStorage.setItem(SAVEKEY, JSON.stringify({ v: 1, money: S.money, votes: S.votes, owned: [...S.owned], peak: S.peak, packs: S.packs, time: S.time, rot: S.rot, sel: S.sel, recent: S.recent,
-      ever: [...S.everPlaced], mission: S.mission, nextMission: S.nextMission, residents: S.residents, archive: S.archive, buffs: S.buffs, malus: S.malus, speed: S.speed, won: S.won, uid: S.uid, cellMax: S.cellMax, lastGain: S.lastGain, subsidyAt: S.subsidyAt,
+      ever: [...S.everPlaced], mission: S.mission, nextMission: S.nextMission, residents: S.residents, archive: S.archive, buffs: S.buffs, malus: S.malus, speed: S.speed, won: S.won, uid: S.uid, cellMax: S.cellMax, allHints: S.allHints, lastGain: S.lastGain, subsidyAt: S.subsidyAt,
       placed: [...placed.values()].map(r => [r.t, r.x, r.y, r.rot, r.h, r.m, r.paid]) }));
   } catch (e) { }
 }
@@ -47,7 +47,7 @@ function load() {
   try {
     const j = JSON.parse(localStorage.getItem(SAVEKEY) || 'null'); if (!j) return false;
     Object.assign(S, { money: j.money, votes: j.votes, owned: new Set(j.owned), peak: j.peak, packs: j.packs, time: j.time, rot: j.rot, sel: j.sel, recent: j.recent || [], everPlaced: new Set(j.ever),
-      mission: j.mission, nextMission: j.nextMission, residents: j.residents || [], archive: j.archive || [], buffs: j.buffs || [], malus: j.malus, speed: j.speed || 1, won: j.won, uid: j.uid || 1, cellMax: j.cellMax || {}, lastGain: j.lastGain || 0, subsidyAt: j.subsidyAt || 0, seenIntro: true });
+      mission: j.mission, nextMission: j.nextMission, residents: j.residents || [], archive: j.archive || [], buffs: j.buffs || [], malus: j.malus, speed: j.speed || 1, won: j.won, uid: j.uid || 1, cellMax: j.cellMax || {}, allHints: !!j.allHints, lastGain: j.lastGain || 0, subsidyAt: j.subsidyAt || 0, seenIntro: true });
     j.placed.forEach(a => placed.set(keyOf(a[1], a[2]), { t: a[0], x: a[1], y: a[2], rot: a[3], h: a[4], m: a[5], paid: a[6] }));
     return true;
   } catch (e) { S = newState(); placed.clear(); return false; }
@@ -133,19 +133,21 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.shadowMap.autoUpdate = false;
 renderer.setClearColor(0x9fd6ee);
+
 const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(0x9fd6ee, 90, 260);
 const camera = new THREE.OrthographicCamera(-10, 10, 10, -10, -200, 400);
 const cam = { x: 0, z: 0, yaw: Math.PI / 4, pitch: .62, view: 16 };
-scene.add(new THREE.HemisphereLight(0xffffff, 0x9bb59a, .85));
-const sun = new THREE.DirectionalLight(0xfff3dc, .75);
+const hemi = new THREE.HemisphereLight(0xdcecff, 0x7f9a6a, .5); scene.add(hemi);
+const fill = new THREE.DirectionalLight(0xb8d0ff, .25); fill.position.set(-30, 18, -24); scene.add(fill);
+const sun = new THREE.DirectionalLight(0xfff0d6, .85);
 sun.position.set(30, 50, 20); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
-Object.assign(sun.shadow.camera, { left: -45, right: 45, top: 45, bottom: -45, near: 1, far: 140 }); sun.shadow.bias = -.0006;
+Object.assign(sun.shadow.camera, { left: -45, right: 45, top: 45, bottom: -45, near: 1, far: 140 }); sun.shadow.bias = -.0005; sun.shadow.radius = 3;
 scene.add(sun);
 /* terrain */
 (function () {
   const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d');
-  x.fillStyle = '#8fc977'; x.fillRect(0, 0, 64, 64); x.fillStyle = '#87c070'; x.fillRect(0, 0, 32, 32); x.fillRect(32, 32, 32, 32);
+  x.fillStyle = '#86bd70'; x.fillRect(0, 0, 64, 64); x.fillStyle = '#7fb66a'; x.fillRect(0, 0, 32, 32); x.fillRect(32, 32, 32, 32);
   const tx = new THREE.CanvasTexture(c); tx.wrapS = tx.wrapT = THREE.RepeatWrapping; tx.repeat.set(N / 2, N / 2); tx.magFilter = THREE.NearestFilter;
   const g = new THREE.Mesh(new THREE.BoxGeometry(N, 1.2, N), [mat(0x8a6a48), mat(0x8a6a48), new THREE.MeshLambertMaterial({ map: tx }), mat(0x8a6a48), mat(0x8a6a48), mat(0x8a6a48)]);
   g.position.y = -.6; g.receiveShadow = true; scene.add(g);
@@ -282,8 +284,7 @@ function spawnMission() {
   const base = [...S.owned].map(i => T[i]).filter(t => t.cat < 5 && !t.ult);
   const subs = [...new Set(base.flatMap(t => t.subs))].filter(s => NOUN[s]);
   const sub = pick(subs);
-  const cands = T.filter(t => t.cat < 5 && !t.ult && t.subs.includes(sub));
-  const un = cands.filter(t => !S.owned.has(t.id)), tile = (un.length && Math.random() < .45) ? pick(un) : pick(cands);
+  const cands = base.filter(t => t.subs.includes(sub) && t.theme >= 0), tile = pick(cands.length ? cands : base.filter(t => t.subs.includes(sub)));
   let anti = -1;
   if (Math.random() < .35) { do { anti = Math.floor(Math.random() * D.themes.length); } while (anti === tile.theme); }
   const name = pick(FIRST), job = pick(JOBS), hue = Math.floor(Math.random() * 360);
@@ -338,8 +339,8 @@ function clickResident(r) {
 function rebuildResidents() {
   while (residentGroup.children.length) residentGroup.remove(residentGroup.children[0]);
   S.residents.forEach(r => {
-    const g = mkCitizen(r.hue / 360, 2.1, true);
-    const k = new THREE.Mesh(G.oct, glow(0xffc94a)); k.scale.set(.07, .1, .07); k.position.y = 1.0; k.name = 'mark'; g.add(k);
+    const g = mkCitizen(r.hue / 360, 1.05, true);
+    const k = new THREE.Mesh(G.oct, glow(0xffc94a)); k.scale.set(.05, .075, .05); k.position.y = .62; k.name = 'mark'; g.add(k);
     const h = objs.get(keyOf(r.x, r.y)); let top = .1; if (h) { const b = new THREE.Box3().setFromObject(h); top = b.max.y + .02; }
     g.position.copy(cellPos(r.x, r.y)); g.position.y = top; g.userData.top = top; g.userData.res = r; residentGroup.add(g);
   });
@@ -366,8 +367,8 @@ canvas.addEventListener('pointerdown', e => {
   mouse.btn = e.button; mouse.lx = e.clientX; mouse.ly = e.clientY; mouse.moved = 0; e.preventDefault();
   if (e.button === 0) {
     ndc.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera);
-    const ch = ray.intersectObjects(citGroup.children, true);
-    if (ch.length) { let o = ch[0].object; while (o && o.parent !== citGroup) o = o.parent; const c = cits.find(c => c.g === o); if (c) { pokeCitizen(c); mouse.btn = -1; return; } }
+    const ch = ray.intersectObjects([iHead, iBody]);
+    if (ch.length && ch[0].instanceId !== undefined) { pokeCitizen(ch[0].instanceId); mouse.btn = -1; return; }
     const hits = ray.intersectObjects(residentGroup.children, true);
     if (hits.length) { let o = hits[0].object; while (o && !o.userData.res) o = o.parent; if (o) { clickResident(o.userData.res); mouse.btn = -1; return; } }
     actOn(cellAt(e.clientX, e.clientY));
@@ -437,7 +438,7 @@ function frame(tm) {
   const tn = performance.now();
   anim.forEach(h => { const a = (tn - h.userData.t0) / 260; if (a >= 1) { h.scale.setScalar(1); anim.delete(h); } else { const e = 1 - Math.pow(1 - a, 3); h.scale.setScalar(.2 + .8 * e + Math.sin(a * Math.PI) * .12); } });
   spinners.forEach(o => { if (o.userData.spin) o.rotation.z += rdt * 1.2; if (o.userData.spinY) o.rotation.z += rdt * .8; });
-  residentGroup.children.forEach(g => { const m = g.getObjectByName('mark'), r = g.userData.res, rdy = now() >= r.ready; if (m) { m.visible = rdy; m.rotation.y += rdt * 2; m.position.y = 1.0 + Math.sin(tn / 300) * .05; } g.position.y = g.userData.top + (rdy ? Math.abs(Math.sin(tn / 260)) * .07 : 0); g.userData.inner.rotation.y = Math.sin(tn / 1200) * .6; });
+  residentGroup.children.forEach(g => { const m = g.getObjectByName('mark'), r = g.userData.res, rdy = now() >= r.ready; if (m) { m.visible = rdy; m.rotation.y += rdt * 2; m.position.y = .62 + Math.sin(tn / 300) * .04; } g.position.y = g.userData.top + (rdy ? Math.abs(Math.sin(tn / 260)) * .07 : 0); g.userData.inner.rotation.y = Math.sin(tn / 1200) * .6; });
   fxUpdate(rdt, tn); animateHUD(rdt);
   marker.material.opacity = .42 + Math.sin(tn / 180) * .14; if (ghost && ghost.visible) ghost.position.y = .03 + Math.abs(Math.sin(tn / 320)) * .05;
   // survol

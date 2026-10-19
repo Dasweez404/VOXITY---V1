@@ -59,9 +59,8 @@ function banner(title, sub, kind = '') {
 }
 function flashScreen(color = '#ffc94a') { const f = document.getElementById('flash'); f.style.setProperty('--fc', color); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); }
 
-/* --- habitants : pavés verticaux à tête cubique qui sautillent --- */
-const citGroup = new THREE.Group(); scene.add(citGroup);
-const cits = [];
+/* --- habitants : pavés verticaux à tête cubique qui sautillent (un pavé par habitant, rendu en instances) --- */
+const MAXC = 600, CS = .6;
 const SKIN = [0xf5cfa8, 0xe0a97c, 0xb97a4e, 0x8a5634, 0xffe2cc], HAIR = [0x2a1d14, 0x5a3a22, 0xc9922a, 0x1a1a1f, 0xb0402a, 0xe8e0d0];
 function mkCitizen(hue, sc = 1, hat = false) {
   const g = new THREE.Group(), inner = new THREE.Group(); g.add(inner);
@@ -74,55 +73,75 @@ function mkCitizen(hue, sc = 1, hat = false) {
   if (hat) { put(inner, G.box, mat(0x394a60), .16 * sc, .02 * sc, .16 * sc, 0, .39 * sc, 0); put(inner, G.box, mat(0x394a60), .1 * sc, .07 * sc, .1 * sc, 0, .43 * sc, 0); }
   g.userData.inner = inner; return g;
 }
+const mkInst = () => { const m = new THREE.InstancedMesh(G.box, new THREE.MeshLambertMaterial({ color: 0xffffff }), MAXC); m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); m.setColorAt(0, new THREE.Color(1, 1, 1)); m.count = 0; m.frustumCulled = false; m.castShadow = false; scene.add(m); return m; };
+const iBody = mkInst(), iHead = mkInst(), iHair = mkInst(), cits = [], occ = new Set(), SLOT = [[-.2, -.2], [.2, -.2], [-.2, .2], [.2, .2]];
+let citRatio = 1, citT = 0;
 const walkableCell = (x, y) => { if (x < 0 || y < 0 || x >= N || y >= N) return false; const r = placed.get(keyOf(x, y)); return !r || !!T[r.t].walk; };
 function nearCity(x, y) { for (let dx = -2; dx <= 2; dx++) for (let dy = -2; dy <= 2; dy++) if (placed.has(keyOf(x + dx, y + dy))) return true; return false; }
 const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 const groundY = (x, y) => placed.has(keyOf(x, y)) ? .075 : .0;
+const slotKey = (x, y, s) => (x + y * N) * 4 + s;
+function freeSlot(x, y) { const o = Math.floor(Math.random() * 4); for (let i = 0; i < 4; i++) { const s = (o + i) % 4; if (!occ.has(slotKey(x, y, s))) return s; } return -1; }
+const _col = new THREE.Color();
+function setCols(i, c) { iBody.setColorAt(i, _col.setHex(c.cl)); iHead.setColorAt(i, _col.setHex(c.sk)); iHair.setColorAt(i, _col.setHex(c.hr)); [iBody, iHead, iHair].forEach(m => { if (m.instanceColor) m.instanceColor.needsUpdate = true; }); }
 function spawnCitizen() {
-  const arr = [...placed.values()].filter(r => T[r.t].cat < 5); if (!arr.length) return;
+  const arr = [...placed.values()].filter(r => T[r.t].cat < 5); if (!arr.length) return false;
   const h = arr[Math.floor(Math.random() * arr.length)], opts = [];
-  for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) if ((dx || dy) && walkableCell(h.x + dx, h.y + dy)) opts.push([h.x + dx, h.y + dy]);
-  if (!opts.length) return;
-  const [cx, cy] = opts[Math.floor(Math.random() * opts.length)];
-  const g = mkCitizen(Math.random(), 1.5), c = { g, cx, cy, tx: cx, ty: cy, ox: rand(-.2, .2), oz: rand(-.2, .2), px: 0, pz: 0, ph: rand(6), sp: rand(.7, 1.1), wait: rand(.2, 1.5), dir: 0, vy: 0, jy: 0, face: 0 };
-  c.px = cx - HALF + .5 + c.ox; c.pz = cy - HALF + .5 + c.oz; g.position.set(c.px, groundY(cx, cy), c.pz); g.scale.setScalar(.001); c.born = 0; citGroup.add(g); cits.push(c);
+  for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) if ((dx || dy) && walkableCell(h.x + dx, h.y + dy)) { const s = freeSlot(h.x + dx, h.y + dy); if (s >= 0) opts.push([h.x + dx, h.y + dy, s]); }
+  if (!opts.length) return false;
+  const [cx, cy, sl] = opts[Math.floor(Math.random() * opts.length)];
+  const c = { cx, cy, sl, tx: cx, ty: cy, ts: sl, px: cx - HALF + .5 + SLOT[sl][0], pz: cy - HALF + .5 + SLOT[sl][1], ph: rand(6), sp: rand(.5, .8), wait: rand(.2, 1.5), dir: 0, vy: 0, jy: 0, face: rand(6), born: 0, gy: groundY(cx, cy),
+    cl: hsl(Math.random(), .6, .55), sk: SKIN[Math.floor(rand(SKIN.length))], hr: HAIR[Math.floor(rand(HAIR.length))] };
+  occ.add(slotKey(cx, cy, sl)); cits.push(c); setCols(cits.length - 1, c); return true;
+}
+function removeCitizen(i) {
+  const c = cits[i]; occ.delete(slotKey(c.cx, c.cy, c.sl)); if (c.tx !== c.cx || c.ty !== c.cy) occ.delete(slotKey(c.tx, c.ty, c.ts));
+  const last = cits.pop(); if (i < cits.length) { cits[i] = last; setCols(i, last); }
 }
 function chooseNext(c) {
-  const opts = DIRS.map((d, i) => [i, c.cx + d[0], c.cy + d[1]]).filter(o => walkableCell(o[1], o[2]) && nearCity(o[1], o[2]));
+  const opts = [];
+  DIRS.forEach((d, i) => { const nx = c.cx + d[0], ny = c.cy + d[1]; if (walkableCell(nx, ny) && nearCity(nx, ny)) { const s = freeSlot(nx, ny); if (s >= 0) opts.push([i, nx, ny, s, (placed.has(keyOf(nx, ny)) ? 3 : 1) * (i === c.dir ? 3 : 1)]); } });
   if (!opts.length) { c.wait = rand(.5, 1.5); return; }
-  const w = opts.map(o => o[0] === c.dir ? 3 : 1), sum = w.reduce((a, b) => a + b, 0); let r = Math.random() * sum, i = 0;
-  for (; i < opts.length - 1; i++) { r -= w[i]; if (r <= 0) break; }
-  c.dir = opts[i][0]; c.tx = opts[i][1]; c.ty = opts[i][2];
+  const sum = opts.reduce((a, o) => a + o[4], 0); let r = Math.random() * sum, k = 0;
+  for (; k < opts.length - 1; k++) { r -= opts[k][4]; if (r <= 0) break; }
+  const o = opts[k]; c.dir = o[0]; c.tx = o[1]; c.ty = o[2]; c.ts = o[3]; occ.add(slotKey(o[1], o[2], o[3]));
 }
+const _m = new THREE.Matrix4(), _b = new THREE.Matrix4(), _q = new THREE.Quaternion(), _e = new THREE.Euler(), _p = new THREE.Vector3(), _s = new THREE.Vector3(), _o = new THREE.Matrix4();
+function put3(mesh, i, base, ox, oy, sx, sy, sz) { _o.makeTranslation(ox, oy, 0); _b.multiplyMatrices(base, _o); _s.set(sx, sy, sz); _b.scale(_s); mesh.setMatrixAt(i, _b); }
 function updateCitizens(dt, tn) {
-  const target = placed.size ? clamp(Math.floor(pop() / 5), 0, 70) : 0;
-  citT -= dt; if (citT <= 0) { citT = .35; if (cits.length < target) spawnCitizen(); else if (cits.length > target) { const c = cits.pop(); citGroup.remove(c.g); } }
+  const p = Math.floor(pop()); citRatio = Math.max(1, Math.ceil(p / MAXC));
+  const target = placed.size ? Math.min(MAXC, Math.ceil(p / citRatio)) : 0;
+  for (let k = 0; k < 8; k++) { if (cits.length < target) { if (!spawnCitizen()) break; } else if (cits.length > target) removeCitizen(cits.length - 1); else break; }
   for (let i = cits.length - 1; i >= 0; i--) {
     const c = cits[i];
-    if (!walkableCell(c.cx, c.cy)) { citGroup.remove(c.g); cits.splice(i, 1); continue; }
-    c.born = Math.min(1, c.born + dt * 3); c.g.scale.setScalar(.001 + c.born * .999);
-    const inner = c.g.userData.inner;
+    if (!walkableCell(c.cx, c.cy)) { removeCitizen(i); continue; }
+    c.born = Math.min(1, c.born + dt * 3);
     if (c.wait > 0) { c.wait -= dt; if (c.wait <= 0) chooseNext(c); c.moving = false; }
     else if (c.tx === c.cx && c.ty === c.cy) chooseNext(c);
+    else if (!walkableCell(c.tx, c.ty)) { occ.delete(slotKey(c.tx, c.ty, c.ts)); c.tx = c.cx; c.ty = c.cy; c.wait = .4; }
     else {
-      const wx = c.tx - HALF + .5 + c.ox, wz = c.ty - HALF + .5 + c.oz, dx = wx - c.px, dz = wz - c.pz, d = Math.hypot(dx, dz), st = c.sp * dt;
+      const wx = c.tx - HALF + .5 + SLOT[c.ts][0], wz = c.ty - HALF + .5 + SLOT[c.ts][1], dx = wx - c.px, dz = wz - c.pz, d = Math.hypot(dx, dz), st = c.sp * dt;
       c.moving = true; c.face = Math.atan2(dx, dz);
-      if (d <= st) { c.px = wx; c.pz = wz; c.cx = c.tx; c.cy = c.ty; if (Math.random() < .12) c.wait = rand(.4, 1.6); else chooseNext(c); }
-      else { c.px += dx / d * st; c.pz += dz / d * st; }
-      c.ph += dt * c.sp * 13;
+      if (d <= st) { c.px = wx; c.pz = wz; occ.delete(slotKey(c.cx, c.cy, c.sl)); c.cx = c.tx; c.cy = c.ty; c.sl = c.ts; if (Math.random() < .12) c.wait = rand(.4, 1.6); else chooseNext(c); }
+      else { c.px += dx / d * st; c.pz += dz / d * st; c.ph += dt * c.sp * 15; }
     }
-    // sautillement : rebonds secs + écrasement à l'atterrissage
-    const hop = c.moving ? Math.abs(Math.sin(c.ph)) : Math.max(0, Math.sin(tn / 500 + i)) * .004;
-    c.vy -= 9 * dt; c.jy = Math.max(0, c.jy + c.vy * dt); if (c.jy === 0) c.vy = 0;
-    const gy = groundY(Math.round(c.px + HALF - .5 - c.ox), Math.round(c.pz + HALF - .5 - c.oz));
-    c.g.position.set(c.px, (c.gy = c.gy === undefined ? gy : c.gy + (gy - c.gy) * Math.min(1, dt * 12)) + hop * .1 + c.jy, c.pz);
-    const sq = c.moving ? 1 + (Math.cos(c.ph * 2)) * .06 : 1; inner.scale.set(1 / Math.sqrt(sq), sq, 1 / Math.sqrt(sq));
-    let da = c.face - inner.rotation.y; da = Math.atan2(Math.sin(da), Math.cos(da)); inner.rotation.y += da * Math.min(1, dt * 12);
-    inner.rotation.z = c.moving ? Math.sin(c.ph) * .08 : 0;
   }
+  for (let i = 0; i < cits.length; i++) {
+    const c = cits[i], hop = c.moving ? Math.abs(Math.sin(c.ph)) : 0;
+    c.vy -= 9 * dt; c.jy = Math.max(0, c.jy + c.vy * dt); if (c.jy === 0) c.vy = 0;
+    const gy = groundY(Math.floor(c.px + HALF), Math.floor(c.pz + HALF)); c.gy += (gy - c.gy) * Math.min(1, dt * 12);
+    let da = c.face - (c.fa || 0); da = Math.atan2(Math.sin(da), Math.cos(da)); c.fa = (c.fa || 0) + da * Math.min(1, dt * 12);
+    const sq = c.moving ? 1 + Math.cos(c.ph * 2) * .07 : 1, sx = 1 / Math.sqrt(sq), bs = c.born;
+    _e.set(0, c.fa, c.moving ? Math.sin(c.ph) * .08 : 0); _q.setFromEuler(_e); _p.set(c.px, c.gy + hop * .06 + c.jy, c.pz); _s.set(bs, bs * sq, bs);
+    _m.compose(_p, _q, _s);
+    put3(iBody, i, _m, 0, .125 * CS, .1 * CS, .17 * CS, .07 * CS);
+    put3(iHead, i, _m, 0, .3 * CS, .135 * CS, .125 * CS, .125 * CS);
+    put3(iHair, i, _m, 0, .375 * CS, .142 * CS, .04 * CS, .132 * CS);
+  }
+  iBody.count = iHead.count = iHair.count = cits.length;
+  iBody.instanceMatrix.needsUpdate = iHead.instanceMatrix.needsUpdate = iHair.instanceMatrix.needsUpdate = true;
 }
-let citT = 0;
-function pokeCitizen(c) { c.vy = 2.6; c.wait = Math.max(c.wait, .6); burst(c.px, .3, c.pz, 0xff7a8a, 6, .8, .045, 3); floatText(c.px, .6, c.pz, '♥', 'heart'); sfx('click'); }
+function pokeCitizen(i) { const c = cits[i]; if (!c) return; c.vy = 2.2; c.wait = Math.max(c.wait, .6); burst(c.px, .3, c.pz, 0xff7a8a, 6, .8, .045, 3); floatText(c.px, .5, c.pz, '♥', 'heart'); sfx('click'); }
 
 /* --- ambiance : ciel, nuages, bateaux, fumées, écume --- */
 const clouds = [], boats = [];
@@ -139,15 +158,18 @@ const clouds = [], boats = [];
   }
   const foam = new THREE.Mesh(new THREE.BoxGeometry(N + 1.6, .05, N + 1.6), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .45 })); foam.position.y = -1.22; foam.name = 'foam'; scene.add(foam);
 })();
-const SKY = [[0, 0xf7c6a0, 0xffd2a0, .62, .62], [.25, 0x9fd6ee, 0xfff3dc, .8, .88], [.5, 0xf2946a, 0xff9a5a, .62, .6], [.75, 0x1b2748, 0x7f9cff, .28, .5]];
+const SKY = [[0, 0xf7c6a0, 0xffd2a0, .6, .44, .2], [.25, 0x9fd6ee, 0xfff0d6, .85, .5, .25], [.5, 0xf2946a, 0xff9a5a, .65, .4, .2], [.75, 0x1b2748, 0x8fa8ff, .25, .4, .35]];
 const _c1 = new THREE.Color(), _c2 = new THREE.Color();
 function dayPhase() { return (.25 + S.time / 420) % 1; }
+let lastNight = -1;
+function nightK(t) { return t < .75 ? clamp((t - .45) / .15, 0, 1) : clamp((1 - t) / .12, 0, 1); }
 function updateSky() {
   const t = dayPhase(); let i = Math.floor(t * 4), a = SKY[i], b = SKY[(i + 1) % 4], f = t * 4 - i; f = f * f * (3 - 2 * f);
   _c1.setHex(a[1]).lerp(_c2.setHex(b[1]), f); renderer.setClearColor(_c1); scene.fog.color.copy(_c1);
   _c1.setHex(a[2]).lerp(_c2.setHex(b[2]), f); sun.color.copy(_c1); sun.intensity = a[3] + (b[3] - a[3]) * f;
-  scene.children.forEach(o => { if (o.isHemisphereLight) o.intensity = a[4] + (b[4] - a[4]) * f; });
-  document.body.style.setProperty('--night', (t > .55 && t < .95) ? 1 : 0);
+  hemi.intensity = a[4] + (b[4] - a[4]) * f; fill.intensity = a[5] + (b[5] - a[5]) * f;
+  const k = nightK(t);
+  if (Math.abs(k - lastNight) > .01) { lastNight = k; Object.values(wallMats).forEach(m => m.emissive.setRGB(k, k * .82, k * .45)); }
 }
 const smokers = new Map(); let smokeT = 0;
 function updateAmbient(dt, tn) {
