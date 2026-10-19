@@ -81,7 +81,7 @@ function refreshSel() {
   if (t) {
     const c = costOf(t); const d = el('div', 'selcard');
     d.appendChild(thumbImg(t));
-    d.insertAdjacentHTML('beforeend', `<div><b>${esc(t.name)}</b><span>${stars(t)} · ${esc(t.sub)}</span><span class="cost ${S.money >= c ? '' : 'no'}">${fmt(c)} $</span></div>`);
+    d.insertAdjacentHTML('beforeend', `<div><b>${esc(t.name)}</b><span>${stars(t)} · ${esc(t.sub)}</span>${isSimple() ? '' : `<span class="cost ${S.money >= c ? '' : 'no'}">${fmt(c)} $</span>`}</div>`);
     box.appendChild(d);
   } else box.innerHTML = '<div class="selcard empty">Appuyez sur <kbd>Espace</kbd> pour choisir une tuile</div>';
   const hb = $('#hotbar'); hb.innerHTML = '';
@@ -93,22 +93,23 @@ let infoHtml = '';
 function infoFor(t, ev, c) {
   let h = '';
   if (t && ev) {
-    const rows = [];
-    if (t.cat === 0) rows.push(`<div class="r"><span>Habitants</span><b>+${f1(ev.hab)}</b></div><div class="r"><span>Capacité</span><b>+${fmt(t.capH)}</b></div>`);
-    else if (ev.hab > 0) rows.push(`<div class="r"><span>Habitants</span><b>+${f1(ev.hab)}</b></div>`);
-    if (ev.money > 0) rows.push(`<div class="r"><span>Gain à la pose</span><b class="g">+${fmt(ev.pay)} $</b></div>${ev.pay < ev.money ? '<div class="r"><span>Déjà perçu ici</span><b class="b">−' + fmt(ev.money - ev.pay) + ' $</b></div>' : ''}<div class="r"><span>Solde net</span><b class="${ev.net >= 0 ? 'g' : 'b'}">${ev.net >= 0 ? '+' : '−'}${fmt(Math.abs(ev.net))} $</b></div>`);
-    if (t.capM) rows.push(`<div class="r"><span>Plafond argent</span><b>+${fmt(t.capM)}</b></div>`);
-    if (t.cat === 0 && t.bM) rows.push(`<div class="r"><span>Boost commerces</span><b class="g">${pc(t.bM)}</b></div>`);
-    if (t.cat === 3) rows.push(`<div class="r"><span>Boost commerces/loisirs</span><b class="g">${pc(t.bM)}</b></div><div class="r"><span>Malus habitations</span><b class="b">${pc(-t.mH)}</b></div>`);
-    if (t.cat === 4) rows.push(`<div class="r"><span>Boost habitants</span><b class="g">${pc(t.bH)}</b></div><div class="r"><span>Malus argent loisirs</span><b class="b">${pc(-t.mM)}</b></div>`);
-    if (t.cat === 5 && (t.bM || t.bH)) rows.push(`<div class="r"><span>Réseau</span><b class="g">${pc(t.bM)}</b></div>`);
+    const sm = isSimple(), rows = [];
+    if (sm) { if (ev.hab > 0) rows.push(`<div class="r"><span>Habitants</span><b>+${f1(ev.hab)}</b></div>`); if (t.cat === 4) rows.push('<div class="r"><span>Effet</span><b class="g">Protège des malus</b></div>'); }
+    else if (t.cat === 0) rows.push(`<div class="r"><span>Habitants</span><b>+${f1(ev.hab)}</b></div><div class="r"><span>Capacité</span><b>+${fmt(t.capH)}</b></div>`);
+    else if (!sm && ev.hab > 0) rows.push(`<div class="r"><span>Habitants</span><b>+${f1(ev.hab)}</b></div>`);
+    if (!sm && ev.money > 0) rows.push(`<div class="r"><span>Gain à la pose</span><b class="g">+${fmt(ev.pay)} $</b></div>${ev.pay < ev.money ? '<div class="r"><span>Déjà perçu ici</span><b class="b">−' + fmt(ev.money - ev.pay) + ' $</b></div>' : ''}<div class="r"><span>Solde net</span><b class="${ev.net >= 0 ? 'g' : 'b'}">${ev.net >= 0 ? '+' : '−'}${fmt(Math.abs(ev.net))} $</b></div>`);
+    if (!sm && t.capM) rows.push(`<div class="r"><span>Plafond argent</span><b>+${fmt(t.capM)}</b></div>`);
+    if (!sm && t.cat === 0 && t.bM) rows.push(`<div class="r"><span>Boost commerces</span><b class="g">${pc(t.bM)}</b></div>`);
+    if (!sm && t.cat === 3) rows.push(`<div class="r"><span>Boost commerces/loisirs</span><b class="g">${pc(t.bM)}</b></div><div class="r"><span>Malus habitations</span><b class="b">${pc(-t.mH)}</b></div>`);
+    if (!sm && t.cat === 4) rows.push(`<div class="r"><span>Boost habitants</span><b class="g">${pc(t.bH)}</b></div><div class="r"><span>Malus argent loisirs</span><b class="b">${pc(-t.mM)}</b></div>`);
+    if (!sm && t.cat === 5 && (t.bM || t.bH)) rows.push(`<div class="r"><span>Réseau</span><b class="g">${pc(t.bM)}</b></div>`);
     const mods = [];
-    if ((t.cat === 1 || t.cat === 2) && Math.abs(ev.mm - 1) > .005) mods.push(`Argent ${pc(ev.mm - 1)} (alentours)`);
-    if ((t.cat === 0 || t.cat === 2) && Math.abs(ev.hm - 1) > .005) mods.push(`Habitants ${pc(ev.hm - 1)} (alentours)`);
+    if (!sm && (t.cat === 1 || t.cat === 2) && Math.abs(ev.mm - 1) > .005) mods.push(`Argent ${pc(ev.mm - 1)} (alentours)`);
+    if (!sm && (t.cat === 0 || t.cat === 2) && Math.abs(ev.hm - 1) > .005) mods.push(`Habitants ${pc(ev.hm - 1)} (alentours)`);
     if (ev.adj) mods.push(`Adjacence ${pc(ev.adjM - 1)} (${ev.adj} voisine${ev.adj > 1 ? 's' : ''} du thème)`);
-    if (t.cat === 2) mods.push(`Prestige ${prestige.n} ×${prestige.m}`);
+    if (!sm && t.cat === 2) mods.push(`Prestige ${prestige.n} ×${prestige.m}`);
     h = `<h4>${esc(t.name)} ${stars(t)}</h4><p class="sub">${esc(t.sub)}${t.theme >= 0 ? ' · ' + esc(D.themes[t.theme]) : ''} · portée ${rangeOf(t) >= 99 ? 'carte' : rangeOf(t) + ' case' + (rangeOf(t) > 1 ? 's' : '')}</p>
-      <div class="r cost"><span>Coût</span><b class="${S.money >= ev.cost ? '' : 'b'}">${fmt(ev.cost)} $</b></div>${rows.join('')}
+      ${sm ? '' : `<div class="r cost"><span>Coût</span><b class="${S.money >= ev.cost ? '' : 'b'}">${fmt(ev.cost)} $</b></div>`}${rows.join('')}
       ${mods.length ? '<ul class="mods">' + mods.map(m => `<li>${m}</li>`).join('') + '</ul>' : ''}
       ${ev.reqs.length ? '<ul class="reqs">' + ev.reqs.map(q => `<li class="${q.ok ? 'ok' : 'ko'}">${q.ok ? '✓' : '✗'} ${esc(q.label)}${q.need ? ` (${q.have}/${q.need})` : ''}</li>`).join('') + '</ul>' : ''}
       ${ev.errs.length ? `<p class="err">${esc(ev.errs[0])}</p>` : ''}`;
@@ -117,8 +118,8 @@ function infoFor(t, ev, c) {
     if (rec) {
       const st = T[rec.t];
       h = `<h4>${esc(st.name)} ${stars(st)}</h4><p class="sub">${esc(st.sub)}${st.theme >= 0 ? ' · ' + esc(D.themes[st.theme]) : ''}</p>
-      ${rec.h ? `<div class="r"><span>Habitants</span><b>${f1(rec.h)}</b></div>` : ''}${rec.m ? `<div class="r"><span>Gain perçu</span><b>${fmt(rec.m)} $</b></div>` : ''}
-      ${S.destroy ? `<p class="err">Clic gauche : détruire (+${fmt(rec.paid * .5)} $)</p>` : ''}`;
+      ${rec.h ? `<div class="r"><span>Habitants</span><b>${f1(rec.h)}</b></div>` : ''}${rec.m && !isSimple() ? `<div class="r"><span>Gain perçu</span><b>${fmt(rec.m)} $</b></div>` : ''}
+      ${S.destroy ? `<p class="err">Clic gauche : détruire${isSimple() ? '' : ' (+' + fmt(rec.paid * .5) + ' $)'}</p>` : ''}`;
     }
   }
   if (h !== infoHtml) { infoHtml = h; const b = $('#info'); b.innerHTML = h; b.hidden = !h; }
@@ -139,18 +140,18 @@ function refreshMission() {
   const m = S.mission, box = $('#mission');
   if (!m) { if (missKey) { missKey = ''; box.hidden = true; } return; }
   const { lv } = missionLevel(), t = T[m.tile], left = Math.max(0, m.until - now()), el_ = 240 - left;
-  const step = Math.floor(el_ / 15), k = [m.id, lv, Math.ceil(left), S.allHints].join('|'); if (k === missKey) return; missKey = k;
-  const bn = BONUSES[m.bonus], f = clamp(step / 16 * .55, 0, .55), all = S.allHints;
+  const sm = isSimple(), hintOn = S.allHints || now() < (S.hintUntil || 0), step = Math.floor(el_ / 15), k = [m.id, lv, sm ? 0 : Math.ceil(left), hintOn, sm ? Math.floor(now() / 15) : 0].join('|'); if (k === missKey) return; missKey = k;
+  const bn = BONUSES[m.bonus], f = clamp(step / 16 * .55, 0, .55), all = hintOn;
   const th = all ? D.themes[m.theme] : maskText(D.themes[m.theme], 'th' + m.id, f), tn = all ? t.name : maskText(t.name, 'tl' + m.id, f * .8);
   const fresh = box.hidden || box.dataset.id != m.id; box.dataset.id = m.id;
   box.hidden = false;
-  box.innerHTML = `<div class="mhead"><span class="avatar" style="--h:${m.hue}">${esc(m.name[0])}</span><div><b>${esc(m.name)}</b><span>${esc(m.job)}${m.anti >= 0 ? ' · déteste ' + esc(D.themes[m.anti]) : ''}</span></div><span class="timer">${Math.floor(left / 60)}:${String(Math.ceil(left % 60) % 60).padStart(2, '0')}</span></div>
+  box.innerHTML = `<div class="mhead"><span class="avatar" style="--h:${m.hue}">${esc(m.name[0])}</span><div><b>${esc(m.name)}</b><span>${esc(m.job)}${m.anti >= 0 ? ' · déteste ' + esc(D.themes[m.anti]) : ''}</span></div>${sm ? '' : `<span class="timer">${Math.floor(left / 60)}:${String(Math.ceil(left % 60) % 60).padStart(2, '0')}</span>`}</div>
     <p>« Je cherche <b>${NOUN[m.sub]}</b>… dans un style que vous devinerez. »</p>
-    <ol class="lvls"><li class="${lv >= 1 ? 'ok' : ''}"><i>Sous-catégorie</i> ${esc(m.sub)}</li>
-    <li class="${lv >= 2 ? 'ok' : ''}"><i>Thème</i> <span class="mk">${esc(th)}</span></li>
-    <li class="${lv >= 3 ? 'ok' : ''}"><i>Tuile exacte</i> <span class="mk">${esc(tn)}</span></li></ol>
-    ${all ? '' : '<p class="hintnote">Les lettres se dévoilent avec le temps. Elle est déjà dans votre collection.</p>'}
-    <div class="mfoot"><span class="bn">Bonus : ${esc(bn.n)}</span><button id="m-ok" ${lv ? '' : 'disabled'}>Accueillir${lv ? ' (niv. ' + lv + ')' : ''}</button></div>`;
+    <ol class="lvls"><li class="${lv >= 1 ? 'ok' : ''}"><i>Sous-catégorie</i> ${esc(m.sub)}${sm ? ' <em class="rw">2 stickers</em>' : ''}</li>
+    <li class="${lv >= 2 ? 'ok' : ''}"><i>Thème</i> <span class="mk">${esc(th)}</span>${sm ? ' <em class="rw">4</em>' : ''}</li>
+    <li class="${lv >= 3 ? 'ok' : ''}"><i>Tuile exacte</i> <span class="mk">${esc(tn)}</span>${sm ? ' <em class="rw">6</em>' : ''}</li></ol>
+    ${all ? '' : '<p class="hintnote">Les lettres se dévoilent avec le temps. Elle est déjà dans votre collection.' + (sm ? ' Cet habitant reste en ville jusqu\'à ce que vous l\'aidiez.' : '') + '</p>'}
+    <div class="mfoot"><span class="bn">Bonus : ${esc(bn.n)}</span><button id="m-ok" ${lv ? '' : 'disabled'}>${sm ? 'Aider' : 'Accueillir'}${lv ? ' (niv. ' + lv + ')' : ''}</button></div>`;
   $('#m-ok').onclick = welcome;
   if (fresh) { box.classList.remove('fresh'); void box.offsetWidth; box.classList.add('fresh'); }
 }
@@ -165,8 +166,9 @@ function toggleMenu() { menuOpen() ? closeMenu() : openMenu(); }
 
 function renderMenu() {
   const tabs = $('#tabs'); tabs.innerHTML = '';
-  TABS.forEach(([id, n]) => { const b = el('button', 'tab' + (U.tab === id ? ' on' : ''), n); b.onclick = () => { U.tab = id; renderMenu(); sfx('click'); }; tabs.appendChild(b); });
+  TABS.filter(([id]) => !(isSimple() && id === 'packs')).forEach(([id, n]) => { const b = el('button', 'tab' + (U.tab === id ? ' on' : ''), n); b.onclick = () => { U.tab = id; renderMenu(); sfx('click'); }; tabs.appendChild(b); });
   const body = $('#mbody'); body.innerHTML = ''; body.classList.remove('swap'); void body.offsetWidth; body.classList.add('swap');
+  if (isSimple() && U.tab === 'packs') U.tab = 'album';
   ({ album: renderAlbum, packs: renderPacks, people: renderPeople, help: renderHelp })[U.tab](body);
 }
 function refreshMenuLive() {
@@ -219,7 +221,7 @@ function tileCard(t, o = {}) {
   c.style.setProperty('--cc', CATC[t.cat]);
   const pic = el('div', 'pic'); if (have) pic.appendChild(thumbImg(t)); else pic.innerHTML = '<span>?</span>'; c.appendChild(pic);
   c.insertAdjacentHTML('beforeend', `<div class="nm">${have ? esc(t.name) : '???'}</div><div class="meta">${stars(t)}<span>${esc(t.sub.split(',')[0])}</span></div><div class="th">${t.theme >= 0 ? esc(D.themes[t.theme]) : 'Terrain'}</div>`);
-  if (o.cost && have) c.insertAdjacentHTML('beforeend', `<div class="cost ${S.money >= costOf(t) ? '' : 'no'}" data-id="${t.id}">${fmt(costOf(t))} $</div>`);
+  if (o.cost && have && !isSimple()) c.insertAdjacentHTML('beforeend', `<div class="cost ${S.money >= costOf(t) ? '' : 'no'}" data-id="${t.id}">${fmt(costOf(t))} $</div>`);
   if (o.stats && have) c.title = statLine(t);
   if (have && holo) c.insertAdjacentHTML('beforeend', '<i class="foil"></i>');
   if (o.click) c.onclick = () => o.click(t);
@@ -240,6 +242,7 @@ const hillRank = t => (t.cat === 5 && t.theme < 0) ? 1 : 0;
 const sorters = { cat: (a, b) => hillRank(a) - hillRank(b) || a.cat - b.cat || a.sub.localeCompare(b.sub, 'fr') || a.s - b.s || a.cost - b.cost, cost: (a, b) => a.cost - b.cost, rar: (a, b) => b.s - a.s || a.cost - b.cost, name: (a, b) => a.name.localeCompare(b.name, 'fr') };
 
 function bonusLabel(b) {
+  if (isSimple() && b.kind !== 'attr' && b.kind !== 'porte') return `Reconnaissance +${(b.val * 80).toFixed(1).replace('.', ',')} % de chance de sticker bonus`;
   return { attr: `Attractivité +${(b.val * 100).toFixed(1).replace('.', ',')} % habitants`, rend: `Rendement +${(b.val * 100).toFixed(1).replace('.', ',')} % argent`, pop: `Popularité +${(b.val * 100).toFixed(1).replace('.', ',')} % votes`,
     eco: `Économie −${(b.val * 100).toFixed(1).replace('.', ',')} % coût ${D.cats[b.ecoCat]}`, porte: 'Portée +1 case (tuiles du thème)' }[b.kind];
 }
@@ -311,11 +314,11 @@ function showReveal(cards) {
 
 function peopleLive() {
   if (!S.residents.length) return '<p class="empty">Aucun habitant spécial installé pour l\'instant. Le prochain arrive bientôt.</p>';
-  return S.residents.map(r => { const b = BONUSES[r.bonus], rd = r.ready - now(); return `<div class="res"><span class="avatar" style="--h:${r.hue}">${esc(r.name[0])}</span><div><b>${esc(r.name)}</b> <small>${esc(r.job)} · niv. ${r.lv}</small><span>${esc(b.n)} : ${b.d(r.lv)}</span></div><em class="${rd <= 0 ? 'rdy' : ''}">${rd <= 0 ? 'Prêt : cliquez sur lui' : Math.ceil(rd) + ' s'}</em></div>`; }).join('');
+  return S.residents.map(r => { const b = BONUSES[r.bonus], rd = r.ready - now(); return `<div class="res"><span class="avatar" style="--h:${r.hue}">${esc(r.name[0])}</span><div><b>${esc(r.name)}</b> <small>${esc(r.job)} · niv. ${r.lv}</small><span>${esc(b.n)} : ${isSimple() ? b.ds(r.lv) : b.d(r.lv)}</span></div><em class="${rd <= 0 ? 'rdy' : ''}">${rd <= 0 ? 'Prêt : cliquez sur lui' : Math.ceil(rd) + ' s'}</em></div>`; }).join('');
 }
 function renderPeople(body) {
   const w = el('div', 'people');
-  w.appendChild(el('div', 'pp-intro', `<p>Un habitant spécial arrive environ toutes les 5 minutes (4 minutes pour le satisfaire). Plus votre tuile est précise, plus la récompense est grande : <b>sous-catégorie</b>, <b>thème</b>, puis <b>tuile exacte</b>. Une fois installé, cliquez sur lui dans la ville pour activer son bonus.</p>`));
+  w.appendChild(el('div', 'pp-intro', isSimple() ? `<p>Les habitants spéciaux arrivent régulièrement avec une demande et <b>ne repartent jamais</b> tant que vous ne les avez pas aidés. Plus votre tuile est précise (<b>sous-catégorie</b>, <b>thème</b>, <b>tuile exacte</b>), plus vous gagnez de stickers. Une fois installés, cliquez sur eux dans la ville pour un bonus temporaire. Ils sont archivés ici.</p>` : `<p>Un habitant spécial arrive environ toutes les 5 minutes (4 minutes pour le satisfaire). Plus votre tuile est précise, plus la récompense est grande : <b>sous-catégorie</b>, <b>thème</b>, puis <b>tuile exacte</b>. Une fois installé, cliquez sur lui dans la ville pour activer son bonus.</p>`));
   w.appendChild(el('h3', '', 'Installés en ville')); w.appendChild(el('div', 'reslist', '<div id="people-live">' + peopleLive() + '</div>'));
   w.appendChild(el('h3', '', `Archives (${S.archive.length})`));
   const arc = el('div', 'arch');
@@ -326,35 +329,91 @@ function renderPeople(body) {
   });
   w.appendChild(arc); body.appendChild(w);
 }
+const SIMPLE_RULES = `
+<h4>Boucle principale</h4>
+<ul><li>Placer librement des tuiles pour développer sa ville et répondre aux demandes des habitants.</li>
+<li>Aider les habitants permet de les faire s'installer et de gagner des récompenses (stickers) pour débloquer de nouvelles tuiles dans l'Album.</li>
+<li>Chaque sticker débloque une nouvelle tuile, sans doublons.</li></ul>
+<p class="goal">Objectif : compléter l'Album et placer la tuile ultime.</p>
+<h4>Utilité des catégories</h4>
+<ul><li><b>Habitations</b> : loger les habitants et développer les quartiers résidentiels.</li>
+<li><b>Commerces</b> : répondre aux besoins quotidiens (manger, acheter, trouver des objets).</li>
+<li><b>Loisirs</b> : satisfaire les besoins de détente, de jeu et de sociabilité.</li>
+<li><b>Productions</b> : fabriquer des objets, réparer et fournir des éléments nécessaires aux missions.</li>
+<li><b>Services</b> : résoudre les urgences et problèmes (incendies, santé, sécurité), prévenir ou supprimer certains malus.</li>
+<li><b>Routes</b> : structurer et relier la ville, faciliter l'accès aux bâtiments et répondre aux demandes de transport.</li></ul>
+<h4>Missions des habitants spéciaux</h4>
+<ul><li>Ils apparaissent régulièrement et demandent de construire ou retrouver un élément (ex. caserne, restaurant, animal ou véhicule).</li>
+<li>La récompense dépend de la précision : bonne sous-catégorie (minimale), bon thème (meilleure), tuile exacte (maximale).</li>
+<li>Une fois aidés, ils s'installent en ville. Cliquer sur eux permet d'obtenir un bonus temporaire (ex. afflux de touristes).</li>
+<li>Les anti-thèmes peuvent appliquer un malus. Les ensembles de tuiles du même thème renforcent leurs synergies.</li>
+<li>Les habitants spéciaux ne disparaissent pas et sont archivés dans l'Album.</li></ul>
+<h4>Thèmes et Album</h4>
+<ul><li>L'Album regroupe 71 thèmes. Chaque tuile placée au moins une fois devient holographique.</li>
+<li>Rassembler des tuiles du même thème renforce leur synergie d'adjacence.</li>
+<li>Plus une tuile est rare plus elle a de portée.</li>
+<li>Compléter un thème offre un bonus permanent lié.</li>
+<li>Les thèmes encouragent à construire des ensembles cohérents et à trouver de meilleures solutions aux demandes des habitants.</li></ul>`;
+const CLASSIC_RULES = `
+<h4>Boucle principale</h4>
+<ul><li>Placer des tuiles génère de l'argent (à la pose) et des habitants. Chaque habitant donne 1 point de vote pour ouvrir des packs de stickers (par catégorie, sans doublons) qui débloquent de nouvelles tuiles.</li></ul>
+<p class="goal">Objectif : compléter l'Album et placer la tuile ultime.</p>
+<h4>Effets et portées</h4>
+<ul><li><b>Habitations</b> : habitants, capacité de population, boost d'argent des commerces voisins. Elles ne rapportent pas d'argent seules.</li>
+<li><b>Commerces</b> : gros gain à la pose, plafond d'argent, quelques habitants.</li>
+<li><b>Loisirs</b> : gain et habitants multipliés par le prestige (Hameau ×1 à Métropole ×3).</li>
+<li><b>Productions</b> : boost d'argent des commerces et loisirs, malus d'habitants sur les habitations proches.</li>
+<li><b>Services</b> : boost d'habitants, malus d'argent des loisirs proches.</li>
+<li><b>Routes</b> : petit boost de réseau. Les ★★ et plus demandent une route à 2 cases.</li>
+<li><b>Portée</b> : Départ 1 case, ★ 2, ★★ 3, ★★★ 4, ★★★★ toute la carte. <b>Synergies</b> : une tuile ★★ ou plus demande des tuiles du même thème à portée. <b>Adjacence</b> : +8 % par voisine du même thème.</li></ul>
+<h4>Habitants spéciaux et thèmes</h4>
+<ul><li>Un habitant spécial arrive environ toutes les 5 minutes avec une demande (sous-catégorie, thème ou tuile exacte, plus la précision est bonne plus la récompense est grande). Une fois installé, un clic sur lui active un bonus temporaire. Les anti-thèmes provoquent un malus.</li>
+<li>Compléter un thème offre un bonus permanent : Attractivité, Rendement, Popularité, Économie ou Portée.</li></ul>`;
 function renderHelp(body) {
-  const w = el('div', 'help');
+  const w = el('div', 'help'), sm = isSimple();
   w.innerHTML = `
   <div class="hcol"><h3>Commandes</h3>
-  <dl><dt><kbd>Espace</kbd></dt><dd>Barre de construction (tuiles, filtres, recherche)</dd><dt><kbd>Échap</kbd></dt><dd>Menu (Album, Packs, Habitants, Aide), ouvre et ferme</dd><dt>Clic gauche</dt><dd>Construire (maintenir pour tracer une ligne)</dd><dt>Clic droit + glisser</dt><dd>Se déplacer sur la carte</dd>
-  <dt>Clic molette + glisser</dt><dd>Tourner la caméra</dd><dt>Molette</dt><dd>Zoomer</dd><dt><kbd>Tab</kbd></dt><dd>Basculer en mode destruction (remboursement de 50 %)</dd>
+  <dl><dt><kbd>Espace</kbd></dt><dd>Barre de construction (tuiles, filtres, recherche)</dd><dt><kbd>Échap</kbd></dt><dd>Menu (Album, ${sm ? '' : 'Packs, '}Habitants, Aide), ouvre et ferme</dd><dt>Clic gauche</dt><dd>Construire (maintenir pour tracer une ligne)</dd><dt>Clic droit + glisser</dt><dd>Se déplacer sur la carte</dd>
+  <dt>Clic molette + glisser</dt><dd>Tourner la caméra</dd><dt>Molette</dt><dd>Zoomer</dd><dt><kbd>Tab</kbd></dt><dd>Basculer en mode destruction${sm ? '' : ' (remboursement de 50 %)'}</dd>
   <dt><kbd>Q</kbd> <kbd>E</kbd></dt><dd>Pivoter la tuile</dd><dt><kbd>1</kbd>–<kbd>8</kbd></dt><dd>Tuiles récentes</dd><dt>Flèches</dt><dd>Déplacer la caméra</dd></dl></div>
-  <div class="hcol"><h3>Règles</h3><ul>
-  <li><b>Habitations</b> : habitants, capacité de population, boost d'argent des commerces voisins.</li>
-  <li><b>Argent</b> : il se gagne uniquement à la pose d'une tuile (commerces, loisirs, productions), jamais avec le temps. Les habitations ne rapportent rien seules. Remplacer une tuile sur une case ne rapporte que la différence.</li>
-  <li><b>Commerces</b> : gros gain à la pose, plafond d'argent, quelques habitants.</li>
-  <li><b>Loisirs</b> : gain et habitants à la pose multipliés par le prestige (Hameau ×1 à Métropole ×3).</li>
-  <li><b>Productions</b> : boost d'argent des commerces et loisirs, malus d'habitants sur les habitations proches.</li>
-  <li><b>Services</b> : boost d'habitants des habitations et loisirs, malus d'argent des loisirs proches.</li>
-  <li><b>Routes</b> : un petit boost de réseau. Les ★★ et plus (hors routes) demandent une route à 2 cases.</li>
-  <li><b>Portée</b> : Départ 1 case, ★ 2, ★★ 3, ★★★ 4, ★★★★ toute la carte. Un effet ne touche que les tuiles posées après la source, dans sa portée.</li>
-  <li><b>Synergies</b> : une tuile ★★ ou plus demande des tuiles du même thème à portée (2, 3 puis 5).</li>
-  <li><b>Adjacence</b> : +8 % par voisine du même thème, jusqu'à +64 %.</li>
-  <li><b>Thème complet</b> : bonus permanent additif (Attractivité, Rendement, Popularité, Économie, Portée).</li>
-  <li><b>Objectif</b> : compléter l'Album (${TOTAL} stickers) puis placer la Tour Voxity.</li></ul></div>
+  <div class="hcol rules"><h3>Règles · ${sm ? 'Mode Simple' : 'Mode Classique'}</h3>${sm ? SIMPLE_RULES : CLASSIC_RULES}</div>
   <div class="hcol"><h3>Partie</h3><p>Vitesse du temps (missions, bonus, jour et nuit)</p><div id="speed2" class="speedrow"></div>
   <label class="chk"><input type="checkbox" id="hints"> Savoir tous les indices <small>(affiche le thème et la tuile exacte demandés)</small></label>
-  <p class="mut">Sauvegarde automatique dans ce navigateur.</p><button id="reset" class="danger">Réinitialiser la partie</button></div>`;
+  <p class="mut">Sauvegarde automatique dans ce navigateur.</p>
+  <button id="tomenu" class="ghost">Menu de départ (changer de mode)</button> <button id="reset" class="danger">Réinitialiser cette partie</button></div>`;
   body.appendChild(w);
   const sp = w.querySelector('#speed2'); [1, 2, 5, 10].forEach(s => { const b = el('button', S.speed === s ? 'on' : '', '×' + s); b.onclick = () => { S.speed = s; renderMenu(); }; sp.appendChild(b); });
   const hc = w.querySelector('#hints'); hc.checked = !!S.allHints; hc.onchange = () => { S.allHints = hc.checked; missKey = ''; uiDirty = true; };
+  w.querySelector('#tomenu').onclick = () => { save(); noSave = true; location.reload(); };
   const rs = w.querySelector('#reset'); let armed = 0;
-  rs.onclick = () => { if (!armed) { armed = 1; rs.textContent = 'Cliquez encore pour confirmer'; setTimeout(() => { armed = 0; rs.textContent = 'Réinitialiser la partie'; }, 4000); } else { try { localStorage.removeItem(SAVEKEY); } catch (e) { } removeEventListener('beforeunload', save); location.reload(); } };
+  rs.onclick = () => { if (!armed) { armed = 1; rs.textContent = 'Cliquez encore pour confirmer'; setTimeout(() => { armed = 0; rs.textContent = 'Réinitialiser cette partie'; }, 4000); } else { noSave = true; try { localStorage.removeItem(SAVEKEY); } catch (e) { } location.reload(); } };
 }
+
+/* ===== MENU DE DÉPART ===== */
+function saveInfo(mode) {
+  try {
+    let raw = localStorage.getItem('voxity_save_v2_' + mode); if (!raw && mode === 'classic') raw = localStorage.getItem('voxity_save_v2');
+    const j = JSON.parse(raw || 'null'); if (!j || j.v !== 2 || j.sig !== SIG_) return null;
+    return { placed: j.placed.length, owned: j.owned.filter(i => i !== ULT).length };
+  } catch (e) { return null; }
+}
+function showStart() {
+  const box = $('#st-cards'); box.innerHTML = '';
+  const defs = [
+    { mode: 'simple', name: 'Mode Simple', tag: 'Détente · sans argent', accent: '#3ddbb0', lines: ['Placez librement toutes les tuiles que vous avez débloquées.', 'Aidez les habitants spéciaux pour gagner des stickers.', 'Chaque sticker débloque une tuile, sans doublon.'], rules: SIMPLE_RULES },
+    { mode: 'classic', name: 'Mode Classique', tag: 'Économie · votes · packs', accent: '#ff7a45', lines: ['L\'argent se gagne à chaque pose de tuile, jamais avec le temps.', 'Vos habitants donnent des votes pour ouvrir des packs par catégorie.', 'Synergies, portées et plafonds à gérer.'], rules: CLASSIC_RULES }];
+  defs.forEach((d, i) => {
+    const info = saveInfo(d.mode), c = el('div', 'scard'); c.style.setProperty('--ac', d.accent); c.style.setProperty('--i', i);
+    c.innerHTML = `<span class="stag">${d.tag}</span><h2>${d.name}</h2><ul>${d.lines.map(l => `<li>${l}</li>`).join('')}</ul><details><summary>Voir les règles</summary><div class="rules">${d.rules}</div></details><div class="sbtns"></div>`;
+    const bt = c.querySelector('.sbtns');
+    if (info) { const b = el('button', 'go', `Continuer <small>${info.placed} tuiles · ${info.owned}/${TOTAL} stickers</small>`); b.onclick = () => { sfx('click'); startGame(d.mode, false); }; bt.appendChild(b); }
+    const n = el('button', info ? 'ghost' : 'go', 'Nouvelle partie'); let armed = 0;
+    n.onclick = () => { if (info && !armed) { armed = 1; n.textContent = 'Écraser la sauvegarde ?'; setTimeout(() => { armed = 0; n.textContent = 'Nouvelle partie'; }, 3500); return; } sfx('click'); startGame(d.mode, true); };
+    bt.appendChild(n); box.appendChild(c);
+  });
+  $('#start').hidden = false; $('#start').classList.remove('out');
+}
+function hideStart() { const s = $('#start'); s.classList.add('out'); setTimeout(() => { s.hidden = true; }, 600); }
 
 function showWin() {
   const w = $('#win'); w.hidden = false;

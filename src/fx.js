@@ -110,7 +110,8 @@ const _m = new THREE.Matrix4(), _b = new THREE.Matrix4(), _q = new THREE.Quatern
 function put3(mesh, i, base, ox, oy, sx, sy, sz) { _o.makeTranslation(ox, oy, 0); _b.multiplyMatrices(base, _o); _s.set(sx, sy, sz); _b.scale(_s); mesh.setMatrixAt(i, _b); }
 function updateCitizens(dt, tn) {
   const p = Math.floor(pop()); citRatio = Math.max(1, Math.ceil(p / MAXC));
-  const target = placed.size ? Math.min(MAXC, Math.ceil(p / citRatio)) : 0;
+  const crowd = now() < (S.crowdUntil || 0) ? 15 + Math.ceil(p * .5) : 0;
+  const target = placed.size ? Math.min(MAXC, Math.ceil(p / citRatio) + crowd) : 0;
   for (let k = 0; k < 8; k++) { if (cits.length < target) { if (!spawnCitizen()) break; } else if (cits.length > target) removeCitizen(cits.length - 1); else break; }
   for (let i = cits.length - 1; i >= 0; i--) {
     const c = cits[i];

@@ -15,7 +15,12 @@ Ouvrir `index.html` dans un navigateur (connexion requise pour charger Three.js 
 | Mode destruction | Tab |
 | Pivoter / tuiles récentes | Q, E / 1 à 8 |
 
-## Règles clés
+## Modes de jeu
+Un menu de départ propose deux modes, chacun avec sa sauvegarde :
+- **Mode Simple** : placement libre (ni argent, ni votes, ni packs). Les habitants spéciaux restent en ville jusqu'à ce qu'on les aide et donnent 2, 4 ou 6 stickers selon la précision (sous-catégorie, thème, tuile exacte). Un anti-thème donne un malus (récompenses réduites 2 min) que les Services préviennent ou suppriment.
+- **Mode Classique** : économie à la pose, votes, packs par catégorie (règles ci-dessous).
+
+## Règles clés (mode Classique)
 - Une seule tuile par `Asset_Name` (la plus basse en rareté) : 865 stickers dont 48 de départ. L'Excel enrichi marque les lignes retenues dans la colonne « Tuile retenue ».
 - L'argent ne se gagne qu'à la pose d'une tuile (commerces, loisirs, productions), jamais avec le temps. Les habitations ne rapportent rien seules. Sur une même case, remplacer une tuile ne rapporte que la différence avec le meilleur gain déjà perçu.
 - Les packs se choisissent par catégorie uniquement (5 stickers manquants de la catégorie).

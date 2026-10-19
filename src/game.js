@@ -14,53 +14,59 @@ const themeTiles = D.themes.map(() => []);
 T.forEach(t => { if (t.theme >= 0) themeTiles[t.theme].push(t.id); });
 const lowerCount = (th, s) => themeTiles[th].filter(i => T[i].s < s).length;
 const SUBS = [0, 1, 2, 3, 4, 5].map(c => [...new Set(T.filter(t => t.cat === c && !t.ult && t.theme >= 0 || t.cat === c && c !== 5).flatMap(t => t.subs))].sort((a, b) => a.localeCompare(b, 'fr')));
-const NOUN = { Education: 'une école', Institution: 'un bâtiment officiel', Public: 'un équipement public', Santé: 'un centre de santé', Agriculture: 'une exploitation agricole', Chantier: 'un chantier', Energie: 'une centrale d\'énergie', Fabrication: 'une usine', Technologie: 'un labo high-tech', Maison: 'une maison', Batiment: 'un immeuble', Villa: 'une villa', 'Gratte Ciel': 'un gratte-ciel', Résidence: 'une résidence', Divertissement: 'une attraction', Montagne: 'un coin de montagne', Nature: 'un espace nature', Plage: 'un coin de plage', Sport: 'un équipement sportif', Amplette: 'une boutique', Esthetique: 'un salon de beauté', Mobilier: 'un magasin de mobilier', Nourriture: 'un stand de nourriture', Restaurant: 'un restaurant' };
+const NOUN = { Education: 'une école', Institution: 'un bâtiment officiel', Public: 'un équipement public', Santé: 'un centre de santé', Agriculture: 'une exploitation agricole', Chantier: 'un chantier', Energie: 'une centrale d\'énergie', Fabrication: 'une usine', Technologie: 'un labo high-tech', Maison: 'une maison', Batiment: 'un immeuble', Villa: 'une villa', 'Gratte Ciel': 'un gratte-ciel', Résidence: 'une résidence', Divertissement: 'une attraction', Montagne: 'un coin de montagne', Nature: 'un espace nature', Plage: 'un coin de plage', Sport: 'un équipement sportif', Amplette: 'une boutique', Esthetique: 'un salon de beauté', Mobilier: 'un magasin de mobilier', Nourriture: 'un stand de nourriture', Restaurant: 'un restaurant', Maritime: 'un bateau', Aviation: 'un avion ou un hélicoptère', Ferroviaire: 'un train', Cyclisme: 'une piste cyclable', Route: 'un morceau de route', Chemin: 'un chemin', Autoroute: 'une autoroute', Pont: 'un pont', Elements: 'un élément de décor' };
 const PRESTIGE = [{ n: 'Hameau', at: 0, m: 1 }, { n: 'Village', at: 150, m: 1.5 }, { n: 'Bourg', at: 600, m: 2 }, { n: 'Ville', at: 2000, m: 2.5 }, { n: 'Métropole', at: 5000, m: 3 }];
 const BASE_CAPH = 15, BASE_CAPM = 1000;
 const FIRST = ['Léa', 'Hugo', 'Inès', 'Maël', 'Camille', 'Noor', 'Yanis', 'Zoé', 'Tom', 'Aïcha', 'Louis', 'Manon', 'Elio', 'Sana', 'Jules', 'Rosa', 'Malo', 'Nina', 'Ravi', 'Clara', 'Théo', 'Mina', 'Oscar', 'Lila'];
 const JOBS = ['pompier', 'boulangère', 'architecte', 'musicien', 'jardinière', 'pilote', 'cuisinier', 'professeure', 'mécanicien', 'photographe', 'explorateur', 'maire retraité', 'critique gastronomique', 'ingénieure', 'skipper', 'fleuriste'];
 const BONUSES = [
-  { id: 'tour', n: 'Afflux de touristes', d: L => `Revenus de pose ×${[1.5, 2, 3][L - 1]} pendant ${[40, 55, 75][L - 1]} s` },
-  { id: 'spot', n: 'Coup de projecteur', d: L => `Votes bonus immédiats (×${L})` },
-  { id: 'chan', n: 'Chantier solidaire', d: L => `Coûts −${[20, 35, 50][L - 1]} % pendant 60 s` },
-  { id: 'bour', n: 'Bourse du quartier', d: L => `Argent immédiat (${[3, 6, 12][L - 1]} poses moyennes)` }];
-const MALUS = [{ id: 'strike', n: 'Grève', d: 'Revenus de pose −50 %' }, { id: 'press', n: 'Mauvaise presse', d: 'Plus de votes' }, { id: 'tax', n: 'Taxe exceptionnelle', d: 'Coûts +40 %' }];
+  { id: 'tour', n: 'Afflux de touristes', ds: L => `Une foule de touristes visite la ville pendant 60 s`, d: L => `Revenus de pose ×${[1.5, 2, 3][L - 1]} pendant ${[40, 55, 75][L - 1]} s` },
+  { id: 'spot', n: 'Coup de projecteur', ds: L => `+${L} sticker${L > 1 ? 's' : ''} à la prochaine aide`, d: L => `Votes bonus immédiats (×${L})` },
+  { id: 'chan', n: 'Chantier solidaire', ds: L => `Inspiration : tous les indices pendant 5 min`, d: L => `Coûts −${[20, 35, 50][L - 1]} % pendant 60 s` },
+  { id: 'bour', n: 'Bourse du quartier', ds: L => `Un sticker offert`, d: L => `Argent immédiat (${[3, 6, 12][L - 1]} poses moyennes)` }];
+const MALUS = [{ id: 'mood', n: 'Mécontentement', d: 'Récompenses de stickers réduites de moitié' }, { id: 'strike', n: 'Grève', d: 'Revenus de pose −50 %' }, { id: 'press', n: 'Mauvaise presse', d: 'Plus de votes' }, { id: 'tax', n: 'Taxe exceptionnelle', d: 'Coûts +40 %' }];
 
 /* ===== ÉTAT ===== */
-const SAVEKEY = 'voxity_save_v2', SIG_ = T.length + ':' + T[0].model + ':' + T[T.length - 2].model;
+let SAVEKEY = 'voxity_save_v2_classic', started = false;
+const SIG_ = T.length + ':' + T[0].model + ':' + T[T.length - 2].model;
 try { localStorage.removeItem('voxity_save_v1'); } catch (e) { }
 let S, placed = new Map(), agg, tot, prestige;
 const keyOf = (x, y) => x + y * N;
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
-function newState() {
-  return { money: 250, cellMax: {}, allHints: false, lastGain: 0, subsidyAt: 0, votes: 20, owned: new Set(T.filter(t => t.s === 0 && !t.ult).map(t => t.id)), peak: 0, packs: 0, time: 0, rot: 0, sel: -1, recent: [], everPlaced: new Set(),
-    mission: null, nextMission: 70, residents: [], archive: [], buffs: [], malus: null, speed: 1, won: false, uid: 1, destroy: false, seenIntro: false };
+const isSimple = () => S && S.mode === 'simple';
+function newState(mode = 'classic') {
+  return { mode, extra: 0, crowdUntil: 0, hintUntil: 0, shieldUntil: 0, money: 250, cellMax: {}, allHints: false, lastGain: 0, subsidyAt: 0, votes: 20, owned: new Set(T.filter(t => t.s === 0 && !t.ult).map(t => t.id)), peak: 0, packs: 0, time: 0, rot: 0, sel: -1, recent: [], everPlaced: new Set(),
+    mission: null, nextMission: mode === 'simple' ? 12 : 70, residents: [], archive: [], buffs: [], malus: null, speed: 1, won: false, uid: 1, destroy: false, seenIntro: false };
 }
+let noSave = false;
 function save() {
+  if (noSave || !started) return;
   try {
     localStorage.setItem(SAVEKEY, JSON.stringify({ v: 2, sig: SIG_, money: S.money, votes: S.votes, owned: [...S.owned], peak: S.peak, packs: S.packs, time: S.time, rot: S.rot, sel: S.sel, recent: S.recent,
-      ever: [...S.everPlaced], mission: S.mission, nextMission: S.nextMission, residents: S.residents, archive: S.archive, buffs: S.buffs, malus: S.malus, speed: S.speed, won: S.won, uid: S.uid, cellMax: S.cellMax, allHints: S.allHints, lastGain: S.lastGain, subsidyAt: S.subsidyAt,
+      ever: [...S.everPlaced], mission: S.mission, nextMission: S.nextMission, residents: S.residents, archive: S.archive, buffs: S.buffs, malus: S.malus, speed: S.speed, won: S.won, uid: S.uid, extra: S.extra, crowdUntil: S.crowdUntil, hintUntil: S.hintUntil, shieldUntil: S.shieldUntil, cellMax: S.cellMax, allHints: S.allHints, lastGain: S.lastGain, subsidyAt: S.subsidyAt,
       placed: [...placed.values()].map(r => [r.t, r.x, r.y, r.rot, r.h, r.m, r.paid]) }));
   } catch (e) { }
 }
-function load() {
-  S = newState();
+function load(mode) {
+  S = newState(mode);
+  if (mode === 'classic') { try { const old = localStorage.getItem('voxity_save_v2'); if (old && !localStorage.getItem(SAVEKEY)) localStorage.setItem(SAVEKEY, old); } catch (e) { } }
   try {
     const j = JSON.parse(localStorage.getItem(SAVEKEY) || 'null'); if (!j || j.v !== 2 || j.sig !== SIG_ || j.placed.some(a => !T[a[0]]) || j.owned.some(i => !T[i])) return false;
     Object.assign(S, { money: j.money, votes: j.votes, owned: new Set(j.owned), peak: j.peak, packs: j.packs, time: j.time, rot: j.rot, sel: j.sel, recent: j.recent || [], everPlaced: new Set(j.ever),
-      mission: j.mission, nextMission: j.nextMission, residents: j.residents || [], archive: j.archive || [], buffs: j.buffs || [], malus: j.malus, speed: j.speed || 1, won: j.won, uid: j.uid || 1, cellMax: j.cellMax || {}, allHints: !!j.allHints, lastGain: j.lastGain || 0, subsidyAt: j.subsidyAt || 0, seenIntro: true });
+      mission: j.mission, nextMission: j.nextMission, residents: j.residents || [], archive: j.archive || [], buffs: j.buffs || [], malus: j.malus, speed: j.speed || 1, won: j.won, uid: j.uid || 1, extra: j.extra || 0, crowdUntil: j.crowdUntil || 0, hintUntil: j.hintUntil || 0, shieldUntil: j.shieldUntil || 0, cellMax: j.cellMax || {}, allHints: !!j.allHints, lastGain: j.lastGain || 0, subsidyAt: j.subsidyAt || 0, seenIntro: true });
     j.placed.forEach(a => placed.set(keyOf(a[1], a[2]), { t: a[0], x: a[1], y: a[2], rot: a[3], h: a[4], m: a[5], paid: a[6] }));
     return true;
-  } catch (e) { S = newState(); placed.clear(); return false; }
+  } catch (e) { S = newState(mode); placed.clear(); return false; }
 }
 
 /* ===== CALCULS ===== */
 function ownedByTheme() { const c = D.themes.map(() => 0); S.owned.forEach(i => { const th = T[i].theme; if (th >= 0) c[th]++; }); return c; }
 function recalc() {
-  agg = { attr: 0, rend: 0, pop: 0, eco: [0, 0, 0, 0, 0, 0], porte: new Set(), done: 0 };
+  agg = { luck: 0, attr: 0, rend: 0, pop: 0, eco: [0, 0, 0, 0, 0, 0], porte: new Set(), done: 0 };
   const ob = ownedByTheme();
   D.themeBonus.forEach((b, i) => {
     if (ob[i] < b.n) return; agg.done++;
+    if (b.kind !== 'attr' && b.kind !== 'porte') agg.luck += b.val * .8;
     if (b.kind === 'attr') agg.attr += b.val; else if (b.kind === 'rend') agg.rend += b.val; else if (b.kind === 'pop') agg.pop += b.val;
     else if (b.kind === 'eco') agg.eco[b.ecoCat] = Math.min(.6, agg.eco[b.ecoCat] + b.val); else agg.porte.add(i);
   });
@@ -71,7 +77,7 @@ function recalc() {
 }
 const albumDone = () => { let c = 0; S.owned.forEach(i => { if (i !== ULT) c++; }); return c >= TOTAL; };
 const ownedCount = () => S.owned.size - (S.owned.has(ULT) ? 1 : 0);
-const pop = () => Math.min(tot.h, tot.capH);
+const pop = () => isSimple() ? tot.h : Math.min(tot.h, tot.capH);
 const now = () => S.time;
 const activeBuff = id => S.buffs.filter(b => b.until > now() && b.id === id);
 const malusOn = id => S.malus && S.malus.until > now() && S.malus.id === id;
@@ -80,6 +86,7 @@ const avgRev = () => tot.nrev ? tot.rev / tot.nrev : 120;
 const revMult = () => { let m = 1 + agg.rend; activeBuff('tour').forEach(b => m *= b.mult); if (malusOn('strike')) m *= .5; return m; };
 function costMult() { let m = 1; activeBuff('chan').forEach(b => m *= b.mult); if (malusOn('tax')) m *= 1.4; return m; }
 function costOf(t) {
+  if (isSimple()) return 0;
   if (t.ult) return t.cost;
   let c = t.cost;
   if (t.cat !== 5) c *= 1 + Math.min(3.5, .004 * tot.n);
@@ -110,18 +117,18 @@ function evaluate(t, x, y) {
       case 5: if (t.cat === 1 || t.cat === 2) bM += st.bM; if (t.cat === 0 || t.cat === 2) bH += st.bH; break;
     }
   });
-  if (t.s >= 2 && t.theme >= 0) {
+  if (!isSimple() && t.s >= 2 && t.theme >= 0) {
     const need = Math.min(SYN_BASE[t.s], lowerCount(t.theme, t.s));
     if (need > 0) { r.reqs.push({ label: `${need} tuile${need > 1 ? 's' : ''} « ${D.themes[t.theme]} » à portée`, ok: sameTheme >= need, have: sameTheme, need }); }
   }
-  if (t.s >= 2 && t.cat < 5 && !t.ult) r.reqs.push({ label: 'Une route à 2 cases maximum', ok: road });
+  if (!isSimple() && t.s >= 2 && t.cat < 5 && !t.ult) r.reqs.push({ label: 'Une route à 2 cases maximum', ok: road });
   if (r.reqs.some(q => !q.ok)) { r.ok = false; r.errs.push('Synergies manquantes'); }
   if (t.theme >= 0) for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) {
     if (!dx && !dy) continue; const o = placed.get(keyOf(x + dx, y + dy)); if (o && T[o.t].theme === t.theme) r.adj++;
   }
   const adjM = 1 + Math.min(.64, .08 * r.adj);
   r.mm = clamp(1 + bM - mM, .25, 3.5); r.hm = clamp(1 + bH - mH, .25, 3.5); r.adjM = adjM;
-  r.money = t.money > 0 ? t.money / t.cost * r.cost * ((t.cat === 1 || t.cat === 2) ? r.mm : 1) * adjM * revMult() * (t.cat === 2 ? prestige.m : 1) : 0;
+  r.money = !isSimple() && t.money > 0 ? t.money / t.cost * r.cost * ((t.cat === 1 || t.cat === 2) ? r.mm : 1) * adjM * revMult() * (t.cat === 2 ? prestige.m : 1) : 0;
   r.hab = t.hab * ((t.cat === 0 || t.cat === 2) ? r.hm : 1) * adjM * (1 + agg.attr) * (t.cat === 2 ? prestige.m : 1);
   r.hab = Math.round(r.hab * 10) / 10; r.money = Math.round(r.money);
   r.pay = Math.max(0, r.money - (S.cellMax[keyOf(x, y)] || 0)); r.net = r.pay - r.cost;
@@ -228,7 +235,8 @@ function place(x, y) {
   recalc(); S.money = Math.min(tot.capM, Math.max(0, S.money - ev.cost) + ev.pay); S.lastGain = ev.pay;
   settlePop(); sfx(t.s >= 3 ? 'rare' : 'place');
   placeFx(t, x, y, ev);
-  if (S.mission && S.mission.anti >= 0 && t.theme === S.mission.anti) failMission(true);
+  if (S.mission && S.mission.anti >= 0 && t.theme === S.mission.anti) { if (isSimple()) simpleMalus(); else failMission(true); }
+  if (isSimple() && t.cat === 4) { S.malus = null; S.shieldUntil = now() + 180; toast('Service public : la ville est protégée des malus pendant 3 min.', 'gold'); }
   if (t.ult) win();
   uiDirty = true; return true;
 }
@@ -242,13 +250,13 @@ function destroyAt(x, y) {
 }
 function settlePop() {
   const p = pop();
-  if (p > S.peak) { S.votes += (p - S.peak) * (1 + agg.pop) * (malusOn('press') ? 0 : 1); S.peak = p; }
+  if (p > S.peak) { if (!isSimple()) S.votes += (p - S.peak) * (1 + agg.pop) * (malusOn('press') ? 0 : 1); S.peak = p; }
 }
 
 function placeFx(t, x, y, ev) {
   const wp = cellPos(x, y), col = hexOf(CATC[t.cat]);
   burst(wp.x, .15, wp.z, col, 12 + t.s * 7, 1.6 + t.s * .35, .055 + t.s * .01); ring(wp.x, wp.z, col, 1 + t.s * .25);
-  floatText(wp.x, .7, wp.z, '−' + fmt(ev.cost) + ' $', 'neg');
+  if (ev.cost > 0) floatText(wp.x, .7, wp.z, '−' + fmt(ev.cost) + ' $', 'neg');
   if (ev.hab > 0) floatText(wp.x, .7, wp.z, '+' + f1(ev.hab) + ' hab.', 'pop', 140);
   if (ev.pay > 0) floatText(wp.x, .7, wp.z, '+' + fmt(ev.pay) + ' $', 'gold', 280);
   else if (ev.money > 0) floatText(wp.x, .7, wp.z, 'déjà perçu', 'neg', 280);
@@ -259,6 +267,31 @@ function placeFx(t, x, y, ev) {
 
 /* ===== PACKS ===== */
 const RW = [0, 1, .8, .5, .25];
+function unlockTiles(out) {
+  const doneBefore = ownedByTheme().map((c, i) => c >= D.themeBonus[i].n);
+  out.forEach(t => S.owned.add(t.id));
+  const doneNow = ownedByTheme().map((c, i) => c >= D.themeBonus[i].n);
+  doneNow.forEach((d, i) => { if (d && !doneBefore[i]) setTimeout(() => { banner('Thème complété', `${D.themes[i]} · ${bonusLabel(D.themeBonus[i])}`, 'theme'); sfx('win'); }, 900 + i * 50); });
+  if (albumDone() && !S.owned.has(ULT)) { S.owned.add(ULT); toast('Album complet ! La Tour Voxity est débloquée.', 'gold'); }
+  recalc(); uiDirty = true;
+}
+/* mode simple : stickers offerts quand on aide un habitant (biaisés vers la catégorie et le thème demandés) */
+function grantStickers(n, cat, theme) {
+  const pool = T.filter(t => !t.ult && !S.owned.has(t.id)), out = [];
+  for (let k = 0; k < n && pool.length; k++) {
+    const w = pool.map(t => RW[t.s] * (t.cat === cat ? 2.5 : 1) * (theme >= 0 && t.theme === theme ? 3 : 1)), sum = w.reduce((a, b) => a + b, 0);
+    let r = Math.random() * sum, i = 0; for (; i < pool.length - 1; i++) { r -= w[i]; if (r <= 0) break; }
+    out.push(pool[i]); pool.splice(i, 1);
+  }
+  if (out.length) unlockTiles(out);
+  return out;
+}
+function simpleMalus() {
+  const m = S.mission; if (!m) return;
+  if (now() < S.shieldUntil) { toast(`${m.name} n'aime pas ce thème, mais la ville est protégée.`, 'info'); return; }
+  if (S.malus && S.malus.until > now()) return;
+  S.malus = { id: 'mood', until: now() + 120 }; toast(`${m.name} déteste ce thème : mécontentement 2 min, récompenses réduites. Un Service le calmerait.`, 'bad'); sfx('bad');
+}
 function drawPack(cat) {
   const price = packPrice(); if (S.votes < price) return null;
   let pool = T.filter(t => !t.ult && !S.owned.has(t.id) && t.cat === cat);
@@ -270,26 +303,21 @@ function drawPack(cat) {
     for (; i < pool.length - 1; i++) { r -= RW[pool[i].s]; if (r <= 0) break; }
     out.push(pool[i]); pool.splice(i, 1);
   }
-  const doneBefore = ownedByTheme().map((c, i) => c >= D.themeBonus[i].n);
-  out.forEach(t => S.owned.add(t.id));
-  const doneNow = ownedByTheme().map((c, i) => c >= D.themeBonus[i].n);
-  doneNow.forEach((d, i) => { if (d && !doneBefore[i]) setTimeout(() => { banner('Thème complété', `${D.themes[i]} · ${bonusLabel(D.themeBonus[i])}`, 'theme'); sfx('win'); }, 900 + i * 50); });
-  if (albumDone() && !S.owned.has(ULT)) { S.owned.add(ULT); toast('Album complet ! La Tour Voxity est débloquée.', 'gold'); }
-  recalc(); uiDirty = true; sfx('pack');
+  unlockTiles(out); sfx('pack');
   return out;
 }
 
 /* ===== HABITANTS SPÉCIAUX ===== */
 const pick = a => a[Math.floor(Math.random() * a.length)];
 function spawnMission() {
-  const base = [...S.owned].map(i => T[i]).filter(t => t.cat < 5 && !t.ult);
+  const base = [...S.owned].map(i => T[i]).filter(t => (isSimple() || t.cat < 5) && !t.ult);
   const subs = [...new Set(base.flatMap(t => t.subs))].filter(s => NOUN[s]);
   const sub = pick(subs);
   const cands = base.filter(t => t.subs.includes(sub) && t.theme >= 0), tile = pick(cands.length ? cands : base.filter(t => t.subs.includes(sub)));
   let anti = -1;
   if (Math.random() < .35) { do { anti = Math.floor(Math.random() * D.themes.length); } while (anti === tile.theme); }
   const name = pick(FIRST), job = pick(JOBS), hue = Math.floor(Math.random() * 360);
-  S.mission = { id: S.uid++, name, job, hue, sub, theme: tile.theme, tile: tile.id, anti, until: now() + 240, bonus: Math.floor(Math.random() * BONUSES.length) };
+  S.mission = { id: S.uid++, name, job, hue, sub, theme: tile.theme, tile: tile.id, anti, until: isSimple() ? 1e12 : now() + 240, bonus: Math.floor(Math.random() * BONUSES.length) };
   toast(`${name}, ${job}, arrive en ville.`, 'info'); sfx('bell'); uiDirty = true;
 }
 function missionLevel() {
@@ -305,12 +333,24 @@ function missionLevel() {
 function archive(m, status, lv) { S.archive.unshift({ id: m.id, name: m.name, job: m.job, hue: m.hue, sub: m.sub, theme: m.theme, tile: m.tile, status, lv: lv || 0, bonus: m.bonus, at: Math.floor(S.time) }); S.archive = S.archive.slice(0, 200); }
 function welcome() {
   const m = S.mission, { lv, at } = missionLevel(); if (!m || !lv) return;
+  if (isSimple()) return welcomeSimple(m, lv, at);
   const votes = Math.ceil((6 + Math.sqrt(pop()) * .8) * [1, 2, 4][lv - 1] * (1 + agg.pop)), money = Math.round(Math.max(60 * lv, avgRev() * [2, 4, 8][lv - 1]));
   S.votes += votes; S.money = Math.min(Math.max(S.money, tot.capM), S.money + money);
   S.residents.push({ id: m.id, name: m.name, job: m.job, hue: m.hue, bonus: m.bonus, lv, x: at.x, y: at.y, ready: now() + 20 });
   archive(m, 'ok', lv); S.mission = null; S.nextMission = now() + 270 + Math.random() * 60;
   toast(`${m.name} s'installe ! +${fmt(votes)} votes, +${fmt(money)} $`, 'gold'); sfx('win'); rebuildResidents(); uiDirty = true;
   confetti(innerWidth / 2, innerHeight / 2, 80); { const q = cellPos(at.x, at.y); burst(q.x, .5, q.z, 0xffc94a, 24, 2, .06); ring(q.x, q.z, 0xffc94a, 1.6); }
+}
+function welcomeSimple(m, lv, at) {
+  let n = [2, 4, 6][lv - 1] + (S.extra || 0); S.extra = 0;
+  if (Math.random() < agg.luck) n++;
+  if (malusOn('mood')) n = Math.max(1, Math.ceil(n / 2));
+  const out = grantStickers(n, T[m.tile].cat, m.theme);
+  S.residents.push({ id: m.id, name: m.name, job: m.job, hue: m.hue, bonus: m.bonus, lv, x: at.x, y: at.y, ready: now() + 15 });
+  archive(m, 'ok', lv); S.mission = null; S.nextMission = now() + 20 + Math.random() * 20;
+  toast(`${m.name} s'installe ! +${out.length} sticker${out.length > 1 ? 's' : ''}`, 'gold'); sfx('win'); rebuildResidents(); uiDirty = true;
+  confetti(innerWidth / 2, innerHeight / 2, 80); { const q = cellPos(at.x, at.y); burst(q.x, .5, q.z, 0xffc94a, 24, 2, .06); ring(q.x, q.z, 0xffc94a, 1.6); }
+  if (out.length) setTimeout(() => showReveal(out), 600);
 }
 function failMission(angry) {
   const m = S.mission; if (!m) return;
@@ -329,7 +369,12 @@ function relocateResident(r) {
 function clickResident(r) {
   if (now() < r.ready) { flash(`${r.name} reviendra dans ${Math.ceil(r.ready - now())} s`); return; }
   const L = r.lv, b = BONUSES[r.bonus];
-  if (b.id === 'tour') S.buffs.push({ id: 'tour', until: now() + [40, 55, 75][L - 1], mult: [1.5, 2, 3][L - 1], by: r.name });
+  if (isSimple()) {
+    if (b.id === 'tour') { S.crowdUntil = now() + 60; toast('Afflux de touristes : la ville est en fête !', 'gold'); }
+    else if (b.id === 'spot') { S.extra = (S.extra || 0) + L; toast(`Coup de projecteur : +${L} sticker${L > 1 ? 's' : ''} à la prochaine aide`, 'gold'); }
+    else if (b.id === 'chan') { S.hintUntil = now() + 300; missKey = ''; toast('Inspiration : tous les indices pendant 5 min', 'gold'); }
+    else { const out = grantStickers(1, -1, -1); if (out.length) setTimeout(() => showReveal(out), 400); toast('Cadeau du quartier : un sticker offert', 'gold'); }
+  } else if (b.id === 'tour') S.buffs.push({ id: 'tour', until: now() + [40, 55, 75][L - 1], mult: [1.5, 2, 3][L - 1], by: r.name });
   else if (b.id === 'chan') S.buffs.push({ id: 'chan', until: now() + 60, mult: 1 - [.2, .35, .5][L - 1], by: r.name });
   else if (b.id === 'spot') { const v = Math.ceil((4 + pop() * .03) * L * (1 + agg.pop)); S.votes += v; toast(`Coup de projecteur : +${fmt(v)} votes`, 'gold'); }
   else { const g = Math.round(Math.max(60 * L, avgRev() * [3, 6, 12][L - 1])); S.money = Math.min(Math.max(S.money, tot.capM), S.money + g); toast(`Bourse du quartier : +${fmt(g)} $`, 'gold'); }
@@ -364,6 +409,7 @@ const mouse = { x: 0, y: 0, cell: null, btn: -1, lx: 0, ly: 0, moved: 0, last: -
 let menuOpen = () => false;
 canvas.addEventListener('contextmenu', e => e.preventDefault());
 canvas.addEventListener('pointerdown', e => {
+  if (!started) return;
   canvas.setPointerCapture(e.pointerId);
   mouse.btn = e.button; mouse.lx = e.clientX; mouse.ly = e.clientY; mouse.moved = 0; e.preventDefault();
   if (e.button === 0) {
@@ -396,6 +442,7 @@ canvas.addEventListener('auxclick', e => e.preventDefault());
 canvas.addEventListener('wheel', e => { e.preventDefault(); cam.view = clamp(cam.view * (e.deltaY > 0 ? 1.1 : .9), 5, 48); updateCamera(); }, { passive: false });
 const keys = {};
 addEventListener('keydown', e => {
+  if (!started) return;
   if (/input|select|textarea/i.test(e.target.tagName)) { if (e.key === 'Escape') e.target.blur(); return; }
   keys[e.code] = true;
   if (e.code === 'Space') { e.preventDefault(); if (document.activeElement) document.activeElement.blur(); if (!menuOpen()) toggleTray(); }
@@ -412,22 +459,23 @@ function selectTile(id) { S.sel = id; S.destroy = false; S.rot = 0; uiDirty = tr
 let lastPrestige = '', uiDirty = true, last = performance.now(), hudT = 0, saveT = 0, missT = 0;
 function tick(dt) {
   S.time += dt;
-  S.money = Math.min(S.money, Math.max(tot.capM, 0));
+  if (!isSimple()) S.money = Math.min(S.money, Math.max(tot.capM, 0));
   /* filet de sécurité : sans argent pour poser une tuile qui rapporte, la ville reçoit une subvention (au plus toutes les 90 s) */
-  if (now() >= S.subsidyAt && Math.floor(now() * 2) % 4 === 0) {
+  if (!isSimple() && now() >= S.subsidyAt && Math.floor(now() * 2) % 4 === 0) {
     let mn = Infinity; S.owned.forEach(i => { const t = T[i]; if (t.money > 0) mn = Math.min(mn, costOf(t)); });
     if (mn < Infinity && S.money < mn) { S.money = Math.min(tot.capM, mn); S.subsidyAt = now() + 90; toast(`Subvention municipale : +${fmt(mn)} $ pour relancer la ville.`, 'gold'); sfx('win'); }
   }
   settlePop();
-  if (lastPrestige && prestige.n !== lastPrestige) { if (prestige.at > 0 && PRESTIGE.findIndex(p => p.n === prestige.n) > PRESTIGE.findIndex(p => p.n === lastPrestige)) { banner(prestige.n, `Loisirs ×${prestige.m}`, 'level'); sfx('win'); } }
+  if (!isSimple() && lastPrestige && prestige.n !== lastPrestige) { if (prestige.at > 0 && PRESTIGE.findIndex(p => p.n === prestige.n) > PRESTIGE.findIndex(p => p.n === lastPrestige)) { banner(prestige.n, `Loisirs ×${prestige.m}`, 'level'); sfx('win'); } }
   lastPrestige = prestige.n;
   S.buffs = S.buffs.filter(b => b.until > now());
   if (S.malus && S.malus.until <= now()) S.malus = null;
   if (!S.mission && now() >= S.nextMission) spawnMission();
-  else if (S.mission && now() > S.mission.until) failMission(false);
+  else if (S.mission && !isSimple() && now() > S.mission.until) failMission(false);
 }
 function frame(tm) {
   const rdt = Math.min(.1, (tm - last) / 1000); last = tm;
+  if (!started) { S.time = 0; cam.yaw += rdt * .06; cam.view = 21; cam.x = Math.sin(cam.yaw) * 8; cam.z = Math.cos(cam.yaw) * 8; updateCamera(); fxUpdate(rdt, performance.now()); renderer.render(scene, camera); requestAnimationFrame(frame); return; }
   if (!menuOpen() || true) tick(rdt * S.speed);
   // déplacement clavier
   if (!menuOpen()) {
@@ -457,11 +505,32 @@ function frame(tm) {
   requestAnimationFrame(frame);
 }
 
+const demoGroup = new THREE.Group(); scene.add(demoGroup);
+function buildDemo() {
+  /* ville de démonstration pour l'écran de départ (n'existe pas dans la partie) */
+  const ids = D.themes.map((_, i) => sigTile(i)).filter(Boolean);
+  for (let i = 0; i < 100; i++) {
+    const t = ids[(i * 7 + 3) % ids.length], x = i % 10, y = Math.floor(i / 10), h = makeHolder(t, 0);
+    h.position.copy(cellPos(23 + x, 23 + y)); demoGroup.add(h);
+  }
+  renderer.shadowMap.needsUpdate = true;
+}
+function startGame(mode, fresh) {
+  SAVEKEY = 'voxity_save_v2_' + mode;
+  if (fresh) { try { localStorage.removeItem(SAVEKEY); } catch (e) { } }
+  scene.remove(demoGroup); placed.clear();
+  const had = load(mode); S.mode = mode; recalc(); lastPrestige = prestige.n;
+  placed.forEach(r => addObj(r, false)); rebuildResidents(); renderer.shadowMap.needsUpdate = true;
+  cam.x = 0; cam.z = 0; cam.view = 16; cam.yaw = Math.PI / 4; updateCamera();
+  document.body.classList.toggle('simple', mode === 'simple'); document.body.classList.add('playing');
+  DV.init = false; started = true; uiDirty = true; missKey = ''; selKey = '';
+  hideStart();
+  if (!had) { openTray(); toast(mode === 'simple' ? 'Placez librement des tuiles. Un habitant va bientôt arriver avec une demande.' : 'Choisissez une tuile, puis clic gauche pour construire.', 'info'); }
+  save();
+}
 function boot() {
-  const had = load(); recalc(); lastPrestige = prestige.n;
-  placed.forEach(r => addObj(r, false)); rebuildResidents();
-  resize(); updateCamera(); setGhost(); buildUI();
-  if (!had) { openTray(); toast('Choisissez une tuile, puis clic gauche pour construire.', 'info'); }
+  S = newState('classic'); recalc();
+  resize(); updateCamera(); setGhost(); buildUI(); buildDemo(); showStart();
   requestAnimationFrame(frame);
-  addEventListener('beforeunload', save);
+  addEventListener('beforeunload', () => { if (started) save(); });
 }
