@@ -393,6 +393,7 @@ function welcome() {
   S.residents.push({ id: m.id, name: m.name, job: m.job, hue: m.hue, bonus: m.bonus, lv, x: at.x, y: at.y, ready: now() + 20 });
   archive(m, 'ok', lv); S.mission = null; S.nextMission = now() + 270 + Math.random() * 60;
   toast(`${m.name} s'installe ! +${fmt(votes)} votes, +${fmt(money)} $`, 'gold'); sfx('win'); rebuildResidents(); uiDirty = true;
+  applyBonus(S.residents[S.residents.length - 1]);
   confetti(innerWidth / 2, innerHeight / 2, 80); { const q = cellPos(at.x, at.y); burst(q.x, .5, q.z, 0xffc94a, 24, 2, .06); ring(q.x, q.z, 0xffc94a, 1.6); }
 }
 function welcomeSimple(m, lv, at) {
@@ -403,6 +404,7 @@ function welcomeSimple(m, lv, at) {
   S.residents.push({ id: m.id, name: m.name, job: m.job, hue: m.hue, bonus: m.bonus, lv, x: at.x, y: at.y, ready: now() + 15 });
   archive(m, 'ok', lv); S.mission = null; S.nextMission = now() + 20 + Math.random() * 20;
   toast(`${m.name} s'installe ! +${v} points de vote`, 'gold'); sfx('win'); rebuildResidents(); uiDirty = true;
+  applyBonus(S.residents[S.residents.length - 1]);
   confetti(innerWidth / 2, innerHeight / 2, 80); { const q = cellPos(at.x, at.y); burst(q.x, .5, q.z, 0xffc94a, 24, 2, .06); ring(q.x, q.z, 0xffc94a, 1.6); }
 }
 function failMission(angry, lv = 3) {
@@ -420,7 +422,11 @@ function relocateResident(r) {
   rebuildResidents();
 }
 function clickResident(r) {
-  if (now() < r.ready) { flash(`${r.name} reviendra dans ${Math.ceil(r.ready - now())} s`); return; }
+  if (now() < r.ready) { flash(`${r.name} réactivera son bonus dans ${Math.ceil(r.ready - now())} s`); return; }
+  applyBonus(r);
+}
+/* le bonus temporaire s'active tout seul quand l'habitant s'installe ; un clic le réactive ensuite */
+function applyBonus(r) {
   const L = r.lv, b = BONUSES[r.bonus];
   if (isSimple()) {
     if (b.id === 'tour') { S.crowdUntil = now() + 60; toast('Afflux de touristes : la ville est en fête !', 'gold'); }

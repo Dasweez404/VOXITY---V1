@@ -1071,6 +1071,7 @@ function welcome() {
   S.residents.push({ id: m.id, name: m.name, job: m.job, hue: m.hue, bonus: m.bonus, lv, x: at.x, y: at.y, ready: now() + 20 });
   archive(m, 'ok', lv); S.mission = null; S.nextMission = now() + 270 + Math.random() * 60;
   toast(`${m.name} s'installe ! +${fmt(votes)} votes, +${fmt(money)} $`, 'gold'); sfx('win'); rebuildResidents(); uiDirty = true;
+  applyBonus(S.residents[S.residents.length - 1]);
   confetti(innerWidth / 2, innerHeight / 2, 80); { const q = cellPos(at.x, at.y); burst(q.x, .5, q.z, 0xffc94a, 24, 2, .06); ring(q.x, q.z, 0xffc94a, 1.6); }
 }
 function welcomeSimple(m, lv, at) {
@@ -1081,6 +1082,7 @@ function welcomeSimple(m, lv, at) {
   S.residents.push({ id: m.id, name: m.name, job: m.job, hue: m.hue, bonus: m.bonus, lv, x: at.x, y: at.y, ready: now() + 15 });
   archive(m, 'ok', lv); S.mission = null; S.nextMission = now() + 20 + Math.random() * 20;
   toast(`${m.name} s'installe ! +${v} points de vote`, 'gold'); sfx('win'); rebuildResidents(); uiDirty = true;
+  applyBonus(S.residents[S.residents.length - 1]);
   confetti(innerWidth / 2, innerHeight / 2, 80); { const q = cellPos(at.x, at.y); burst(q.x, .5, q.z, 0xffc94a, 24, 2, .06); ring(q.x, q.z, 0xffc94a, 1.6); }
 }
 function failMission(angry, lv = 3) {
@@ -1098,7 +1100,11 @@ function relocateResident(r) {
   rebuildResidents();
 }
 function clickResident(r) {
-  if (now() < r.ready) { flash(`${r.name} reviendra dans ${Math.ceil(r.ready - now())} s`); return; }
+  if (now() < r.ready) { flash(`${r.name} réactivera son bonus dans ${Math.ceil(r.ready - now())} s`); return; }
+  applyBonus(r);
+}
+/* le bonus temporaire s'active tout seul quand l'habitant s'installe ; un clic le réactive ensuite */
+function applyBonus(r) {
   const L = r.lv, b = BONUSES[r.bonus];
   if (isSimple()) {
     if (b.id === 'tour') { S.crowdUntil = now() + 60; toast('Afflux de touristes : la ville est en fête !', 'gold'); }
@@ -1597,7 +1603,7 @@ function tutoSteps(mode) {
   go('Un habitant spécial arrive', 'Voici sa demande (panneau à gauche) : la <b>sous-catégorie</b> est donnée, le thème et la tuile exacte se devinent (ici tous les indices sont affichés). Posez une tuile de la bonne sous-catégorie : plus c\'est précis (thème, tuile exacte), meilleure est la récompense.', () => missionLevel().lv >= 1, { hl: '#mission', enter: () => { S.hintUntil = now() + 1e6; S.nextMission = 1e12; S.mission = null; spawnMission(); } });
   go(sm ? 'Aider l\'habitant' : 'Accueillir l\'habitant', sm ? 'Cliquez sur <b>Aider</b> : l\'habitant s\'installe et vous gagnez des <b>points de vote</b> (8, 16 ou 28 selon la précision).' : 'Cliquez sur <b>Accueillir</b> : il s\'installe en ville et vous gagnez des votes et de l\'argent selon la précision.', () => S.residents.length >= 1 && $('#reveal').hidden, { hl: '#m-ok' });
   if (sm) packSteps('En mode Simple, les <b>points de vote</b> ne viennent <b>que des missions</b> des habitants spéciaux. Ils servent à ouvrir des <b>packs</b> de stickers qui débloquent de nouvelles tuiles.');
-  go('Le bonus de l\'habitant', 'Cliquez sur l\'habitant dans la ville (le personnage au diamant doré) pour activer son <b>bonus temporaire</b>.', () => S.residents.length && S.residents[0].ready - now() > 100, { enter: () => { S.residents.forEach(r => r.ready = 0); } });
+  info('Le bonus de l\'habitant', 'Dès qu\'un habitant spécial s\'installe, son <b>bonus temporaire</b> s\'active tout seul' + (sm ? ' (touristes, votes en plus, indices, cadeau)' : ' (revenus en plus, coûts réduits, votes ou argent)') + '. Vous pouvez le réactiver plus tard en cliquant sur lui (le personnage au diamant doré).');
   info('Anti-thèmes et dissonances', 'Certains thèmes se gênent entre eux (et certaines sous-catégories ou catégories). Poser une tuile près d\'une tuile qui la dérange crée une <b>dissonance</b> : malus sur ses habitants' + (sm ? '' : ' et son gain') + '. Plus le conflit est précis, plus c\'est fort : <b>tuile exacte</b> −40 %, <b>thème</b> −25 %, <b>sous-catégorie</b> −14 %, <b>catégorie</b> −7 %. Le panneau de survol vous prévient avant de poser (case orange).');
   info('Thèmes et synergies', 'Chaque tuile appartient à l\'un des <b>71 thèmes</b>. Poser des tuiles du même thème côte à côte renforce leur <b>adjacence</b>. Les <b>synergies</b> (tuiles du même thème à portée) sont <b>optionnelles</b> : elles donnent un bonus mais ne bloquent jamais la pose. Plus une tuile est rare (★), plus sa <b>portée</b> est grande.');
   go('L\'Album', 'Ouvrez le menu (<kbd>Échap</kbd>) > <b>Album</b> : il regroupe tous les stickers et les 71 thèmes. Compléter un thème offre un <b>bonus permanent</b>. Une tuile placée au moins une fois devient holographique.', () => menuOpen() && U.tab === 'album', { hl: '#open-menu', enter: () => { closeMenu(); U.tab = 'people'; } });
@@ -1957,11 +1963,11 @@ function showReveal(cards) {
 
 function peopleLive() {
   if (!S.residents.length) return '<p class="empty">Aucun habitant spécial installé pour l\'instant. Le prochain arrive bientôt.</p>';
-  return S.residents.map(r => { const b = BONUSES[r.bonus], rd = r.ready - now(); return `<div class="res"><span class="avatar" style="--h:${r.hue}">${esc(r.name[0])}</span><div><b>${esc(r.name)}</b> <small>${esc(r.job)} · niv. ${r.lv}</small><span>${esc(b.n)} : ${isSimple() ? b.ds(r.lv) : b.d(r.lv)}</span></div><em class="${rd <= 0 ? 'rdy' : ''}">${rd <= 0 ? 'Prêt : cliquez sur lui' : Math.ceil(rd) + ' s'}</em></div>`; }).join('');
+  return S.residents.map(r => { const b = BONUSES[r.bonus], rd = r.ready - now(); return `<div class="res"><span class="avatar" style="--h:${r.hue}">${esc(r.name[0])}</span><div><b>${esc(r.name)}</b> <small>${esc(r.job)} · niv. ${r.lv}</small><span>${esc(b.n)} : ${isSimple() ? b.ds(r.lv) : b.d(r.lv)}</span></div><em class="${rd <= 0 ? 'rdy' : ''}">${rd <= 0 ? 'Bonus réactivable : cliquez sur lui' : Math.ceil(rd) + ' s'}</em></div>`; }).join('');
 }
 function renderPeople(body) {
   const w = el('div', 'people');
-  w.appendChild(el('div', 'pp-intro', isSimple() ? `<p>Les habitants spéciaux arrivent régulièrement avec une demande et <b>ne repartent jamais</b> tant que vous ne les avez pas aidés. Plus votre tuile est précise (<b>sous-catégorie</b>, <b>thème</b>, <b>tuile exacte</b>), plus vous gagnez de points de vote. Une fois installés, cliquez sur eux dans la ville pour un bonus temporaire. Ils sont archivés ici.</p>` : `<p>Un habitant spécial arrive environ toutes les 5 minutes (4 minutes pour le satisfaire). Plus votre tuile est précise, plus la récompense est grande : <b>sous-catégorie</b>, <b>thème</b>, puis <b>tuile exacte</b>. Une fois installé, cliquez sur lui dans la ville pour activer son bonus.</p>`));
+  w.appendChild(el('div', 'pp-intro', isSimple() ? `<p>Les habitants spéciaux arrivent régulièrement avec une demande et <b>ne repartent jamais</b> tant que vous ne les avez pas aidés. Plus votre tuile est précise (<b>sous-catégorie</b>, <b>thème</b>, <b>tuile exacte</b>), plus vous gagnez de points de vote. Dès qu'ils s'installent, leur bonus temporaire s'active tout seul ; cliquez sur eux pour le réactiver plus tard. Ils sont archivés ici.</p>` : `<p>Un habitant spécial arrive environ toutes les 5 minutes (4 minutes pour le satisfaire). Plus votre tuile est précise, plus la récompense est grande : <b>sous-catégorie</b>, <b>thème</b>, puis <b>tuile exacte</b>. Dès qu'il s'installe, son bonus temporaire s'active tout seul ; cliquez sur lui plus tard pour le réactiver.</p>`));
   w.appendChild(el('h3', '', 'Installés en ville')); w.appendChild(el('div', 'reslist', '<div id="people-live">' + peopleLive() + '</div>'));
   w.appendChild(el('h3', '', `Archives (${S.archive.length})`));
   const arc = el('div', 'arch');
@@ -1989,7 +1995,7 @@ const SIMPLE_RULES = `
 <h4>Missions des habitants spéciaux</h4>
 <ul><li>Ils apparaissent régulièrement et demandent de construire ou retrouver un élément (ex. caserne, restaurant, animal ou véhicule).</li>
 <li>La récompense dépend de la précision : bonne sous-catégorie (minimale), bon thème (meilleure), tuile exacte (maximale).</li>
-<li>Une fois aidés, ils s'installent en ville. Cliquer sur eux permet d'obtenir un bonus temporaire (ex. afflux de touristes).</li>
+<li>Une fois aidés, ils s'installent en ville et leur bonus temporaire (ex. afflux de touristes) s'active aussitôt. Cliquer sur eux le réactive plus tard.</li>
 <li>Les anti-thèmes peuvent appliquer un malus (voir « Anti-thèmes et dissonances »). Les ensembles de tuiles du même thème renforcent leurs synergies.</li>
 <li>Les habitants spéciaux ne disparaissent pas et sont archivés dans l'Album.</li></ul>
 <h4>Anti-thèmes et dissonances</h4>
@@ -2019,7 +2025,7 @@ const CLASSIC_RULES = `
 <ul><li>Certains thèmes, sous-catégories et catégories se gênent entre eux. Poser une tuile à moins de 3 cases d'une tuile qui la dérange provoque une <b>dissonance</b> sur son gain et ses habitants : <b>tuile exacte</b> −40 %, <b>thème</b> −25 %, <b>sous-catégorie</b> −14 %, <b>catégorie</b> −7 %.</li>
 <li>Un habitant spécial peut détester une tuile exacte, un thème, une sous-catégorie ou une catégorie : le malus est d'autant plus fort que c'est précis.</li></ul>
 <h4>Habitants spéciaux et thèmes</h4>
-<ul><li>Un habitant spécial arrive environ toutes les 5 minutes avec une demande (sous-catégorie, thème ou tuile exacte, plus la précision est bonne plus la récompense est grande). Une fois installé, un clic sur lui active un bonus temporaire. Les anti-thèmes provoquent un malus.</li>
+<ul><li>Un habitant spécial arrive environ toutes les 5 minutes avec une demande (sous-catégorie, thème ou tuile exacte, plus la précision est bonne plus la récompense est grande). Dès qu'il s'installe, son bonus temporaire s'active tout seul (un clic le réactive plus tard). Les anti-thèmes provoquent un malus.</li>
 <li>Compléter un thème offre un bonus permanent : Attractivité, Rendement, Popularité, Économie ou Portée.</li></ul>`;
 function renderHelp(body) {
   const w = el('div', 'help'), sm = isSimple();

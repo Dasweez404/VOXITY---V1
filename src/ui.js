@@ -321,11 +321,11 @@ function showReveal(cards) {
 
 function peopleLive() {
   if (!S.residents.length) return '<p class="empty">Aucun habitant spécial installé pour l\'instant. Le prochain arrive bientôt.</p>';
-  return S.residents.map(r => { const b = BONUSES[r.bonus], rd = r.ready - now(); return `<div class="res"><span class="avatar" style="--h:${r.hue}">${esc(r.name[0])}</span><div><b>${esc(r.name)}</b> <small>${esc(r.job)} · niv. ${r.lv}</small><span>${esc(b.n)} : ${isSimple() ? b.ds(r.lv) : b.d(r.lv)}</span></div><em class="${rd <= 0 ? 'rdy' : ''}">${rd <= 0 ? 'Prêt : cliquez sur lui' : Math.ceil(rd) + ' s'}</em></div>`; }).join('');
+  return S.residents.map(r => { const b = BONUSES[r.bonus], rd = r.ready - now(); return `<div class="res"><span class="avatar" style="--h:${r.hue}">${esc(r.name[0])}</span><div><b>${esc(r.name)}</b> <small>${esc(r.job)} · niv. ${r.lv}</small><span>${esc(b.n)} : ${isSimple() ? b.ds(r.lv) : b.d(r.lv)}</span></div><em class="${rd <= 0 ? 'rdy' : ''}">${rd <= 0 ? 'Bonus réactivable : cliquez sur lui' : Math.ceil(rd) + ' s'}</em></div>`; }).join('');
 }
 function renderPeople(body) {
   const w = el('div', 'people');
-  w.appendChild(el('div', 'pp-intro', isSimple() ? `<p>Les habitants spéciaux arrivent régulièrement avec une demande et <b>ne repartent jamais</b> tant que vous ne les avez pas aidés. Plus votre tuile est précise (<b>sous-catégorie</b>, <b>thème</b>, <b>tuile exacte</b>), plus vous gagnez de points de vote. Une fois installés, cliquez sur eux dans la ville pour un bonus temporaire. Ils sont archivés ici.</p>` : `<p>Un habitant spécial arrive environ toutes les 5 minutes (4 minutes pour le satisfaire). Plus votre tuile est précise, plus la récompense est grande : <b>sous-catégorie</b>, <b>thème</b>, puis <b>tuile exacte</b>. Une fois installé, cliquez sur lui dans la ville pour activer son bonus.</p>`));
+  w.appendChild(el('div', 'pp-intro', isSimple() ? `<p>Les habitants spéciaux arrivent régulièrement avec une demande et <b>ne repartent jamais</b> tant que vous ne les avez pas aidés. Plus votre tuile est précise (<b>sous-catégorie</b>, <b>thème</b>, <b>tuile exacte</b>), plus vous gagnez de points de vote. Dès qu'ils s'installent, leur bonus temporaire s'active tout seul ; cliquez sur eux pour le réactiver plus tard. Ils sont archivés ici.</p>` : `<p>Un habitant spécial arrive environ toutes les 5 minutes (4 minutes pour le satisfaire). Plus votre tuile est précise, plus la récompense est grande : <b>sous-catégorie</b>, <b>thème</b>, puis <b>tuile exacte</b>. Dès qu'il s'installe, son bonus temporaire s'active tout seul ; cliquez sur lui plus tard pour le réactiver.</p>`));
   w.appendChild(el('h3', '', 'Installés en ville')); w.appendChild(el('div', 'reslist', '<div id="people-live">' + peopleLive() + '</div>'));
   w.appendChild(el('h3', '', `Archives (${S.archive.length})`));
   const arc = el('div', 'arch');
@@ -353,7 +353,7 @@ const SIMPLE_RULES = `
 <h4>Missions des habitants spéciaux</h4>
 <ul><li>Ils apparaissent régulièrement et demandent de construire ou retrouver un élément (ex. caserne, restaurant, animal ou véhicule).</li>
 <li>La récompense dépend de la précision : bonne sous-catégorie (minimale), bon thème (meilleure), tuile exacte (maximale).</li>
-<li>Une fois aidés, ils s'installent en ville. Cliquer sur eux permet d'obtenir un bonus temporaire (ex. afflux de touristes).</li>
+<li>Une fois aidés, ils s'installent en ville et leur bonus temporaire (ex. afflux de touristes) s'active aussitôt. Cliquer sur eux le réactive plus tard.</li>
 <li>Les anti-thèmes peuvent appliquer un malus (voir « Anti-thèmes et dissonances »). Les ensembles de tuiles du même thème renforcent leurs synergies.</li>
 <li>Les habitants spéciaux ne disparaissent pas et sont archivés dans l'Album.</li></ul>
 <h4>Anti-thèmes et dissonances</h4>
@@ -383,7 +383,7 @@ const CLASSIC_RULES = `
 <ul><li>Certains thèmes, sous-catégories et catégories se gênent entre eux. Poser une tuile à moins de 3 cases d'une tuile qui la dérange provoque une <b>dissonance</b> sur son gain et ses habitants : <b>tuile exacte</b> −40 %, <b>thème</b> −25 %, <b>sous-catégorie</b> −14 %, <b>catégorie</b> −7 %.</li>
 <li>Un habitant spécial peut détester une tuile exacte, un thème, une sous-catégorie ou une catégorie : le malus est d'autant plus fort que c'est précis.</li></ul>
 <h4>Habitants spéciaux et thèmes</h4>
-<ul><li>Un habitant spécial arrive environ toutes les 5 minutes avec une demande (sous-catégorie, thème ou tuile exacte, plus la précision est bonne plus la récompense est grande). Une fois installé, un clic sur lui active un bonus temporaire. Les anti-thèmes provoquent un malus.</li>
+<ul><li>Un habitant spécial arrive environ toutes les 5 minutes avec une demande (sous-catégorie, thème ou tuile exacte, plus la précision est bonne plus la récompense est grande). Dès qu'il s'installe, son bonus temporaire s'active tout seul (un clic le réactive plus tard). Les anti-thèmes provoquent un malus.</li>
 <li>Compléter un thème offre un bonus permanent : Attractivité, Rendement, Popularité, Économie ou Portée.</li></ul>`;
 function renderHelp(body) {
   const w = el('div', 'help'), sm = isSimple();
