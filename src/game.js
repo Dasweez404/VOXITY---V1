@@ -117,19 +117,19 @@ function evaluate(t, x, y) {
       case 5: if (t.cat === 1 || t.cat === 2) bM += st.bM; if (t.cat === 0 || t.cat === 2) bH += st.bH; break;
     }
   });
-  if (!isSimple() && t.s >= 2 && t.theme >= 0) {
+  if (t.s >= 2 && t.theme >= 0) {
     const need = Math.min(SYN_BASE[t.s], lowerCount(t.theme, t.s));
     if (need > 0) { r.reqs.push({ label: `${need} tuile${need > 1 ? 's' : ''} « ${D.themes[t.theme]} » à portée`, ok: sameTheme >= need, have: sameTheme, need }); }
   }
-  if (!isSimple() && t.s >= 2 && t.cat < 5 && !t.ult) r.reqs.push({ label: 'Une route à 2 cases maximum', ok: road });
-  if (r.reqs.some(q => !q.ok)) { r.ok = false; r.errs.push('Synergies manquantes'); }
+  if (t.s >= 2 && t.cat < 5 && !t.ult) r.reqs.push({ label: 'Une route à 2 cases maximum', ok: road });
+  r.synOK = r.reqs.length > 0 && r.reqs.every(q => q.ok); const synB = r.synOK ? 1.25 : 1;   /* synergies optionnelles : bonus, jamais un blocage */
   if (t.theme >= 0) for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) {
     if (!dx && !dy) continue; const o = placed.get(keyOf(x + dx, y + dy)); if (o && T[o.t].theme === t.theme) r.adj++;
   }
   const adjM = 1 + Math.min(.64, .08 * r.adj);
   r.mm = clamp(1 + bM - mM, .25, 3.5); r.hm = clamp(1 + bH - mH, .25, 3.5); r.adjM = adjM;
-  r.money = !isSimple() && t.money > 0 ? t.money / t.cost * r.cost * ((t.cat === 1 || t.cat === 2) ? r.mm : 1) * adjM * revMult() * (t.cat === 2 ? prestige.m : 1) : 0;
-  r.hab = t.hab * ((t.cat === 0 || t.cat === 2) ? r.hm : 1) * adjM * (1 + agg.attr) * (t.cat === 2 ? prestige.m : 1);
+  r.money = !isSimple() && t.money > 0 ? t.money / t.cost * r.cost * ((t.cat === 1 || t.cat === 2) ? r.mm : 1) * adjM * synB * revMult() * (t.cat === 2 ? prestige.m : 1) : 0;
+  r.hab = t.hab * ((t.cat === 0 || t.cat === 2) ? r.hm : 1) * adjM * synB * (1 + agg.attr) * (t.cat === 2 ? prestige.m : 1);
   r.hab = Math.round(r.hab * 10) / 10; r.money = Math.round(r.money);
   r.pay = Math.max(0, r.money - (S.cellMax[keyOf(x, y)] || 0)); r.net = r.pay - r.cost;
   return r;
@@ -488,7 +488,7 @@ function frame(tm) {
   anim.forEach(h => { const a = (tn - h.userData.t0) / 260; if (a >= 1) { h.scale.setScalar(1); anim.delete(h); } else { const e = 1 - Math.pow(1 - a, 3); h.scale.setScalar(.2 + .8 * e + Math.sin(a * Math.PI) * .12); } });
   spinners.forEach(o => { if (o.userData.spin) o.rotation.z += rdt * 1.2; if (o.userData.spinY) o.rotation.z += rdt * .8; });
   residentGroup.children.forEach(g => { const m = g.getObjectByName('mark'), r = g.userData.res, rdy = now() >= r.ready; if (m) { m.visible = rdy; m.rotation.y += rdt * 2; m.position.y = .62 + Math.sin(tn / 300) * .04; } g.position.y = g.userData.top + (rdy ? Math.abs(Math.sin(tn / 260)) * .07 : 0); g.userData.inner.rotation.y = Math.sin(tn / 1200) * .6; });
-  fxUpdate(rdt, tn); animateHUD(rdt);
+  fxUpdate(rdt, tn); animateHUD(rdt); tutoUpdate(rdt);
   marker.material.opacity = .42 + Math.sin(tn / 180) * .14; if (ghost && ghost.visible) ghost.position.y = .03 + Math.abs(Math.sin(tn / 320)) * .05;
   // survol
   if (mouse.cell) {
@@ -515,22 +515,25 @@ function buildDemo() {
   }
   renderer.shadowMap.needsUpdate = true;
 }
-function startGame(mode, fresh) {
-  SAVEKEY = 'voxity_save_v2_' + mode;
-  if (fresh) { try { localStorage.removeItem(SAVEKEY); } catch (e) { } }
+function startGame(mode, fresh, opts) {
+  const tuto = !!(opts && opts.tuto);
+  SAVEKEY = 'voxity_save_v2_' + mode; noSave = tuto;
+  if (fresh && !tuto) { try { localStorage.removeItem(SAVEKEY); } catch (e) { } }
   scene.remove(demoGroup); placed.clear();
-  const had = load(mode); S.mode = mode; recalc(); lastPrestige = prestige.n;
+  const had = tuto ? (S = newState(mode), false) : load(mode); S.mode = mode;
+  if (tuto) { S.money = 500; S.votes = 45; S.nextMission = 1e12; } recalc(); lastPrestige = prestige.n;
   placed.forEach(r => addObj(r, false)); rebuildResidents(); renderer.shadowMap.needsUpdate = true;
   cam.x = 0; cam.z = 0; cam.view = 16; cam.yaw = Math.PI / 4; updateCamera();
   document.body.classList.toggle('simple', mode === 'simple'); document.body.classList.add('playing');
   DV.init = false; started = true; uiDirty = true; missKey = ''; selKey = '';
   hideStart();
   if (!had) { openTray(); toast(mode === 'simple' ? 'Placez librement des tuiles. Un habitant va bientôt arriver avec une demande.' : 'Choisissez une tuile, puis clic gauche pour construire.', 'info'); }
-  save();
+  save(); if (tuto) { closeTray(); startTuto(mode); }
 }
 function boot() {
   S = newState('classic'); recalc();
   resize(); updateCamera(); setGhost(); buildUI(); buildDemo(); showStart();
   requestAnimationFrame(frame);
   addEventListener('beforeunload', () => { if (started) save(); });
+  try { const a = sessionStorage.getItem('vx_auto'); if (a) { sessionStorage.removeItem('vx_auto'); const [m, k] = a.split(':'); setTimeout(() => startGame(m, k === 'fresh'), 50); } } catch (e) { }
 }

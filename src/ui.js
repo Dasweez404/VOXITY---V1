@@ -111,7 +111,7 @@ function infoFor(t, ev, c) {
     h = `<h4>${esc(t.name)} ${stars(t)}</h4><p class="sub">${esc(t.sub)}${t.theme >= 0 ? ' · ' + esc(D.themes[t.theme]) : ''} · portée ${rangeOf(t) >= 99 ? 'carte' : rangeOf(t) + ' case' + (rangeOf(t) > 1 ? 's' : '')}</p>
       ${sm ? '' : `<div class="r cost"><span>Coût</span><b class="${S.money >= ev.cost ? '' : 'b'}">${fmt(ev.cost)} $</b></div>`}${rows.join('')}
       ${mods.length ? '<ul class="mods">' + mods.map(m => `<li>${m}</li>`).join('') + '</ul>' : ''}
-      ${ev.reqs.length ? '<ul class="reqs">' + ev.reqs.map(q => `<li class="${q.ok ? 'ok' : 'ko'}">${q.ok ? '✓' : '✗'} ${esc(q.label)}${q.need ? ` (${q.have}/${q.need})` : ''}</li>`).join('') + '</ul>' : ''}
+      ${ev.reqs.length ? '<p class="synh">Synergie optionnelle : ' + (ev.synOK ? '<b class="g">bonus +25 % actif</b>' : 'bonus +25 % si réunie') + '</p><ul class="reqs">' + ev.reqs.map(q => `<li class="${q.ok ? 'ok' : 'ko'}">${q.ok ? '✓' : '○'} ${esc(q.label)}${q.need ? ` (${q.have}/${q.need})` : ''}</li>`).join('') + '</ul>' : ''}
       ${ev.errs.length ? `<p class="err">${esc(ev.errs[0])}</p>` : ''}`;
   } else if (c) {
     const rec = placed.get(keyOf(c.x, c.y));
@@ -351,6 +351,7 @@ const SIMPLE_RULES = `
 <h4>Thèmes et Album</h4>
 <ul><li>L'Album regroupe 71 thèmes. Chaque tuile placée au moins une fois devient holographique.</li>
 <li>Rassembler des tuiles du même thème renforce leur synergie d'adjacence.</li>
+<li>Les synergies sont optionnelles : elles donnent un bonus de +25 % aux habitants, mais n'empêchent jamais de poser une tuile.</li>
 <li>Plus une tuile est rare plus elle a de portée.</li>
 <li>Compléter un thème offre un bonus permanent lié.</li>
 <li>Les thèmes encouragent à construire des ensembles cohérents et à trouver de meilleures solutions aux demandes des habitants.</li></ul>`;
@@ -364,8 +365,8 @@ const CLASSIC_RULES = `
 <li><b>Loisirs</b> : gain et habitants multipliés par le prestige (Hameau ×1 à Métropole ×3).</li>
 <li><b>Productions</b> : boost d'argent des commerces et loisirs, malus d'habitants sur les habitations proches.</li>
 <li><b>Services</b> : boost d'habitants, malus d'argent des loisirs proches.</li>
-<li><b>Routes</b> : petit boost de réseau. Les ★★ et plus demandent une route à 2 cases.</li>
-<li><b>Portée</b> : Départ 1 case, ★ 2, ★★ 3, ★★★ 4, ★★★★ toute la carte. <b>Synergies</b> : une tuile ★★ ou plus demande des tuiles du même thème à portée. <b>Adjacence</b> : +8 % par voisine du même thème.</li></ul>
+<li><b>Routes</b> : petit boost de réseau.</li>
+<li><b>Portée</b> : Départ 1 case, ★ 2, ★★ 3, ★★★ 4, ★★★★ toute la carte. <b>Synergies (optionnelles)</b> : une tuile ★★ ou plus qui a des tuiles du même thème à portée (et une route à 2 cases) gagne +25 % de gain et d'habitants, sinon elle se pose quand même. <b>Adjacence</b> : +8 % par voisine du même thème.</li></ul>
 <h4>Habitants spéciaux et thèmes</h4>
 <ul><li>Un habitant spécial arrive environ toutes les 5 minutes avec une demande (sous-catégorie, thème ou tuile exacte, plus la précision est bonne plus la récompense est grande). Une fois installé, un clic sur lui active un bonus temporaire. Les anti-thèmes provoquent un malus.</li>
 <li>Compléter un thème offre un bonus permanent : Attractivité, Rendement, Popularité, Économie ou Portée.</li></ul>`;
@@ -401,7 +402,7 @@ function showStart() {
   const box = $('#st-cards'); box.innerHTML = '';
   const defs = [
     { mode: 'simple', name: 'Mode Simple', tag: 'Détente · sans argent', accent: '#3ddbb0', lines: ['Placez librement toutes les tuiles que vous avez débloquées.', 'Aidez les habitants spéciaux pour gagner des stickers.', 'Chaque sticker débloque une tuile, sans doublon.'], rules: SIMPLE_RULES },
-    { mode: 'classic', name: 'Mode Classique', tag: 'Économie · votes · packs', accent: '#ff7a45', lines: ['L\'argent se gagne à chaque pose de tuile, jamais avec le temps.', 'Vos habitants donnent des votes pour ouvrir des packs par catégorie.', 'Synergies, portées et plafonds à gérer.'], rules: CLASSIC_RULES }];
+    { mode: 'classic', name: 'Mode Classique', tag: 'Économie · votes · packs', accent: '#ff7a45', lines: ['L\'argent se gagne à chaque pose de tuile, jamais avec le temps.', 'Vos habitants donnent des votes pour ouvrir des packs par catégorie.', 'Synergies optionnelles, portées et plafonds à gérer.'], rules: CLASSIC_RULES }];
   defs.forEach((d, i) => {
     const info = saveInfo(d.mode), c = el('div', 'scard'); c.style.setProperty('--ac', d.accent); c.style.setProperty('--i', i);
     c.innerHTML = `<span class="stag">${d.tag}</span><h2>${d.name}</h2><ul>${d.lines.map(l => `<li>${l}</li>`).join('')}</ul><details><summary>Voir les règles</summary><div class="rules">${d.rules}</div></details><div class="sbtns"></div>`;
@@ -409,7 +410,8 @@ function showStart() {
     if (info) { const b = el('button', 'go', `Continuer <small>${info.placed} tuiles · ${info.owned}/${TOTAL} stickers</small>`); b.onclick = () => { sfx('click'); startGame(d.mode, false); }; bt.appendChild(b); }
     const n = el('button', info ? 'ghost' : 'go', 'Nouvelle partie'); let armed = 0;
     n.onclick = () => { if (info && !armed) { armed = 1; n.textContent = 'Écraser la sauvegarde ?'; setTimeout(() => { armed = 0; n.textContent = 'Nouvelle partie'; }, 3500); return; } sfx('click'); startGame(d.mode, true); };
-    bt.appendChild(n); box.appendChild(c);
+    bt.appendChild(n);
+    const tb = el('button', 'tutob', '▶ Tutoriel guidé'); tb.onclick = () => { sfx('click'); startGame(d.mode, true, { tuto: true }); }; bt.appendChild(tb); box.appendChild(c);
   });
   $('#start').hidden = false; $('#start').classList.remove('out');
 }

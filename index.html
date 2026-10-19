@@ -339,6 +339,22 @@ body.simple #st-money,body.simple #st-votes{display:none}
 body:not(.playing) :is(#hud,#bottom,#mode,#mission,#info,#vig){visibility:hidden}
 body.simple #h-popcap,body.simple #st-pop .bar{display:none}
 .st-sub{text-shadow:0 2px 10px rgba(0,0,0,.85),0 0 2px #000;color:#fff}
+.synh{margin:6px 0 0;font-size:12.5px;color:var(--mut)}.synh b.g{color:var(--teal)}
+
+/* ===== TUTORIEL ===== */
+#coach{position:fixed;left:50%;top:112px;transform:translateX(-50%);z-index:15;width:min(460px,calc(100vw - 24px));display:flex;flex-direction:column;gap:8px;padding:14px 16px;border-radius:16px;background:rgba(14,24,37,.96);border:1px solid var(--coral);box-shadow:0 16px 44px rgba(0,0,0,.5),0 0 0 3px rgba(255,122,69,.18)}
+#coach.pop{animation:coachin .45s cubic-bezier(.2,1.3,.4,1)}@keyframes coachin{from{opacity:0;transform:translate(-50%,-16px) scale(.94)}}
+#coach.done{border-color:var(--teal);box-shadow:0 16px 44px rgba(0,0,0,.5),0 0 0 3px rgba(61,219,176,.3)}
+#coach.done h3::after{content:" ✓";color:var(--teal)}
+.co-top{display:flex;justify-content:space-between;font:700 11px var(--f-b);text-transform:uppercase;letter-spacing:.1em;color:var(--coral)}
+#coach h3{margin:0;font:600 20px var(--f-d)}#coach p{margin:0;color:#d3e0ec;line-height:1.45}
+.co-btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:2px}.co-btns button{padding:8px 14px;border-radius:10px;font-weight:700;border:1px solid var(--line);background:var(--panel2)}
+.co-btns button.go{background:var(--coral);color:#2b1305;border-color:transparent;box-shadow:0 3px 0 #b14b1f}
+#coachhl{position:fixed;z-index:14;pointer-events:none;border-radius:14px;border:3px solid var(--gold);box-shadow:0 0 0 4px rgba(255,201,74,.25),0 0 28px rgba(255,201,74,.6);animation:hlp 1.1s ease-in-out infinite}
+@keyframes hlp{50%{box-shadow:0 0 0 10px rgba(255,201,74,.08),0 0 40px rgba(255,201,74,.9);transform:scale(1.03)}}
+body.tuto #toasts{top:auto;bottom:300px}
+.sbtns button.tutob{flex:1 1 100%;background:transparent;border:1px dashed var(--ac);color:var(--ac)}
+.sbtns button.tutob:hover{background:color-mix(in srgb,var(--ac) 14%,transparent)}
 </style>
 <canvas id="gl"></canvas><div id="vig"></div><div id="fx"></div><canvas id="confetti"></canvas><div id="flash"></div><div id="banner"></div>
 <div id="hud">
@@ -357,6 +373,7 @@ body.simple #h-popcap,body.simple #st-pop .bar{display:none}
 <div id="bottom"><div id="sel"></div><div id="hotbar"></div>
   <div id="hint"><kbd>Espace</kbd> construire · <kbd>Échap</kbd> menu · Clic gauche poser<br>Clic droit déplacer · Clic molette tourner · <kbd>Tab</kbd> destruction</div></div>
 <div id="tray"><div class="tr-head"><div id="tr-cats" class="chips"></div><input id="tr-q" type="search" placeholder="Rechercher une tuile…" autocomplete="off"><button id="tr-close" title="Fermer (Espace)">Fermer <kbd>Espace</kbd></button></div><div id="tr-subs" class="chips"></div><div id="tr-list"></div></div>
+<div id="coach" hidden></div><div id="coachhl" hidden></div>
 <div id="toasts"></div>
 <div id="start" hidden><div class="st-in"><h1>VOXITY</h1><p class="st-sub">Construisez votre ville isométrique, aidez ses habitants et complétez l'Album de 865 tuiles.</p><div id="st-cards"></div><p class="st-foot">Chaque mode a sa propre sauvegarde dans ce navigateur.</p></div></div>
 <div id="menu" hidden><div id="mpanel"><div id="mhead"><div id="tabs"></div><button id="menu-close">Fermer <kbd>Échap</kbd></button></div><div id="mbody"></div></div></div>
@@ -777,19 +794,19 @@ function evaluate(t, x, y) {
       case 5: if (t.cat === 1 || t.cat === 2) bM += st.bM; if (t.cat === 0 || t.cat === 2) bH += st.bH; break;
     }
   });
-  if (!isSimple() && t.s >= 2 && t.theme >= 0) {
+  if (t.s >= 2 && t.theme >= 0) {
     const need = Math.min(SYN_BASE[t.s], lowerCount(t.theme, t.s));
     if (need > 0) { r.reqs.push({ label: `${need} tuile${need > 1 ? 's' : ''} « ${D.themes[t.theme]} » à portée`, ok: sameTheme >= need, have: sameTheme, need }); }
   }
-  if (!isSimple() && t.s >= 2 && t.cat < 5 && !t.ult) r.reqs.push({ label: 'Une route à 2 cases maximum', ok: road });
-  if (r.reqs.some(q => !q.ok)) { r.ok = false; r.errs.push('Synergies manquantes'); }
+  if (t.s >= 2 && t.cat < 5 && !t.ult) r.reqs.push({ label: 'Une route à 2 cases maximum', ok: road });
+  r.synOK = r.reqs.length > 0 && r.reqs.every(q => q.ok); const synB = r.synOK ? 1.25 : 1;   /* synergies optionnelles : bonus, jamais un blocage */
   if (t.theme >= 0) for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) {
     if (!dx && !dy) continue; const o = placed.get(keyOf(x + dx, y + dy)); if (o && T[o.t].theme === t.theme) r.adj++;
   }
   const adjM = 1 + Math.min(.64, .08 * r.adj);
   r.mm = clamp(1 + bM - mM, .25, 3.5); r.hm = clamp(1 + bH - mH, .25, 3.5); r.adjM = adjM;
-  r.money = !isSimple() && t.money > 0 ? t.money / t.cost * r.cost * ((t.cat === 1 || t.cat === 2) ? r.mm : 1) * adjM * revMult() * (t.cat === 2 ? prestige.m : 1) : 0;
-  r.hab = t.hab * ((t.cat === 0 || t.cat === 2) ? r.hm : 1) * adjM * (1 + agg.attr) * (t.cat === 2 ? prestige.m : 1);
+  r.money = !isSimple() && t.money > 0 ? t.money / t.cost * r.cost * ((t.cat === 1 || t.cat === 2) ? r.mm : 1) * adjM * synB * revMult() * (t.cat === 2 ? prestige.m : 1) : 0;
+  r.hab = t.hab * ((t.cat === 0 || t.cat === 2) ? r.hm : 1) * adjM * synB * (1 + agg.attr) * (t.cat === 2 ? prestige.m : 1);
   r.hab = Math.round(r.hab * 10) / 10; r.money = Math.round(r.money);
   r.pay = Math.max(0, r.money - (S.cellMax[keyOf(x, y)] || 0)); r.net = r.pay - r.cost;
   return r;
@@ -1148,7 +1165,7 @@ function frame(tm) {
   anim.forEach(h => { const a = (tn - h.userData.t0) / 260; if (a >= 1) { h.scale.setScalar(1); anim.delete(h); } else { const e = 1 - Math.pow(1 - a, 3); h.scale.setScalar(.2 + .8 * e + Math.sin(a * Math.PI) * .12); } });
   spinners.forEach(o => { if (o.userData.spin) o.rotation.z += rdt * 1.2; if (o.userData.spinY) o.rotation.z += rdt * .8; });
   residentGroup.children.forEach(g => { const m = g.getObjectByName('mark'), r = g.userData.res, rdy = now() >= r.ready; if (m) { m.visible = rdy; m.rotation.y += rdt * 2; m.position.y = .62 + Math.sin(tn / 300) * .04; } g.position.y = g.userData.top + (rdy ? Math.abs(Math.sin(tn / 260)) * .07 : 0); g.userData.inner.rotation.y = Math.sin(tn / 1200) * .6; });
-  fxUpdate(rdt, tn); animateHUD(rdt);
+  fxUpdate(rdt, tn); animateHUD(rdt); tutoUpdate(rdt);
   marker.material.opacity = .42 + Math.sin(tn / 180) * .14; if (ghost && ghost.visible) ghost.position.y = .03 + Math.abs(Math.sin(tn / 320)) * .05;
   // survol
   if (mouse.cell) {
@@ -1175,24 +1192,27 @@ function buildDemo() {
   }
   renderer.shadowMap.needsUpdate = true;
 }
-function startGame(mode, fresh) {
-  SAVEKEY = 'voxity_save_v2_' + mode;
-  if (fresh) { try { localStorage.removeItem(SAVEKEY); } catch (e) { } }
+function startGame(mode, fresh, opts) {
+  const tuto = !!(opts && opts.tuto);
+  SAVEKEY = 'voxity_save_v2_' + mode; noSave = tuto;
+  if (fresh && !tuto) { try { localStorage.removeItem(SAVEKEY); } catch (e) { } }
   scene.remove(demoGroup); placed.clear();
-  const had = load(mode); S.mode = mode; recalc(); lastPrestige = prestige.n;
+  const had = tuto ? (S = newState(mode), false) : load(mode); S.mode = mode;
+  if (tuto) { S.money = 500; S.votes = 45; S.nextMission = 1e12; } recalc(); lastPrestige = prestige.n;
   placed.forEach(r => addObj(r, false)); rebuildResidents(); renderer.shadowMap.needsUpdate = true;
   cam.x = 0; cam.z = 0; cam.view = 16; cam.yaw = Math.PI / 4; updateCamera();
   document.body.classList.toggle('simple', mode === 'simple'); document.body.classList.add('playing');
   DV.init = false; started = true; uiDirty = true; missKey = ''; selKey = '';
   hideStart();
   if (!had) { openTray(); toast(mode === 'simple' ? 'Placez librement des tuiles. Un habitant va bientôt arriver avec une demande.' : 'Choisissez une tuile, puis clic gauche pour construire.', 'info'); }
-  save();
+  save(); if (tuto) { closeTray(); startTuto(mode); }
 }
 function boot() {
   S = newState('classic'); recalc();
   resize(); updateCamera(); setGhost(); buildUI(); buildDemo(); showStart();
   requestAnimationFrame(frame);
   addEventListener('beforeunload', () => { if (started) save(); });
+  try { const a = sessionStorage.getItem('vx_auto'); if (a) { sessionStorage.removeItem('vx_auto'); const [m, k] = a.split(':'); setTimeout(() => startGame(m, k === 'fresh'), 50); } } catch (e) { }
 }
 
 /* ===== EFFETS, HABITANTS QUI MARCHENT, AMBIANCE ===== */
@@ -1488,6 +1508,73 @@ function useSig(t) {
 /* tuile représentative d'un thème (la plus rare qui utilise le modèle signature) */
 function sigTile(i) { let best = null; T.forEach(t => { if (t.theme === i && useSig(t) && (!best || t.s > best.s)) best = t; }); return best || T.find(t => t.theme === i); }
 
+/* ===== TUTORIEL GUIDÉ (modes Simple et Classique) ===== */
+let TU = null;
+const chipSel = n => `#tr-cats .cchip:nth-child(${n})`;
+const placedCat = c => [...placed.values()].some(r => T[r.t].cat === c);
+function tutoSteps(mode) {
+  const sm = mode === 'simple', st = [];
+  const info = (title, text, hl) => st.push({ title, text, btn: true, hl });
+  const go = (title, text, cond, o = {}) => st.push(Object.assign({ title, text, cond }, o));
+  const pick = (cat, chipN) => () => !trayIsOpen() && S.sel < 0 ? '#open-tray' : (U.bCat !== cat ? chipSel(chipN) : '#tr-list .card:not(.locked)');
+  info('Bienvenue', sm ? 'Ce tutoriel vous guide pas à pas dans le <b>mode Simple</b> : on place librement des tuiles et on aide les habitants pour gagner des stickers. Vous pouvez le quitter à tout moment.' : 'Ce tutoriel vous guide pas à pas dans le <b>mode Classique</b> : l\'argent se gagne à la pose, les habitants donnent des votes pour ouvrir des packs. Vous pouvez le quitter à tout moment.');
+  go('Se déplacer', '<b>Clic droit</b> maintenu + glisser pour déplacer la carte.', () => Math.hypot(cam.x - TU.snap.x, cam.z - TU.snap.z) > 1.5);
+  go('Tourner la caméra', '<b>Clic molette</b> maintenu + glisser pour tourner la vue.', () => Math.abs(cam.yaw - TU.snap.yaw) > .35);
+  go('Zoomer', 'Utilisez la <b>molette</b> pour zoomer ou dézoomer.', () => Math.abs(cam.view - TU.snap.view) > 1.5);
+  go('La barre de construction', 'Appuyez sur <kbd>Espace</kbd> : une barre monte du bas de l\'écran avec toutes vos tuiles, des filtres par catégorie et sous-catégorie, et une recherche.', () => trayIsOpen(), { hl: '#open-tray', enter: () => closeTray() });
+  if (sm) {
+    go('Choisir une tuile', 'Filtrez sur <b>Habitations</b> puis cliquez sur une tuile pour la sélectionner.', () => S.sel >= 0 && T[S.sel].cat === 0, { hl: pick(0, 2), enter: () => { if (!trayIsOpen()) openTray(); } });
+    go('Poser librement', '<b>Clic gauche</b> sur la carte pour poser. En mode Simple, c\'est gratuit et sans limite : maintenez le clic pour tracer une ligne. Posez 3 tuiles.', () => placed.size >= 3);
+  } else {
+    go('Choisir un commerce', 'Filtrez sur <b>Commerces</b> puis choisissez-en un. Les commerces sont ce qui rapporte de l\'argent.', () => S.sel >= 0 && T[S.sel].cat === 1, { hl: pick(1, 3), enter: () => { if (!trayIsOpen()) openTray(); } });
+    go('Gagner de l\'argent à la pose', '<b>Clic gauche</b> pour poser. L\'argent se gagne <b>uniquement à la pose</b>, jamais avec le temps : regardez le gain s\'afficher. Survolez une case pour voir le gain prévu avant de poser.', () => placedCat(1));
+    go('Choisir une habitation', 'Les habitations ne rapportent pas d\'argent mais logent des habitants. Filtrez sur <b>Habitations</b> et choisissez-en une.', () => S.sel >= 0 && T[S.sel].cat === 0, { hl: pick(0, 2), enter: () => { if (!trayIsOpen()) openTray(); } });
+    go('Loger des habitants', 'Posez-la : votre compteur d\'<b>habitants</b> augmente (jusqu\'au plafond de population).', () => placedCat(0));
+    info('Les votes', 'Chaque habitant vous donne <b>1 point de vote</b> (compteur à côté de l\'argent). Les votes servent à ouvrir des <b>packs</b> de stickers pour débloquer de nouvelles tuiles.', '#st-votes');
+    go('Ouvrir le menu', 'Appuyez sur <kbd>Échap</kbd> pour ouvrir le menu, puis cliquez sur l\'onglet <b>Packs</b>.', () => menuOpen() && U.tab === 'packs', { hl: () => menuOpen() ? '#tabs .tab:nth-child(2)' : '#open-menu', enter: () => { S.votes = Math.max(S.votes, 40); closeMenu(); } });
+    go('Ouvrir un pack', 'Chaque pack contient <b>5 stickers d\'une catégorie</b>, sans doublon. Ouvrez-en un puis retournez les cartes.', () => S.packs >= 1, { hl: '.packbtn:not(:disabled)' });
+    go('Revenir en ville', 'Fermez le résultat puis le menu (<kbd>Échap</kbd>). Les nouvelles tuiles sont dans la barre de construction.', () => $('#reveal').hidden && !menuOpen(), { hl: '#r-close' });
+  }
+  go('Détruire', 'Appuyez sur <kbd>Tab</kbd> pour passer en <b>mode destruction</b>' + (sm ? '.' : ' (la moitié du prix est remboursée).'), () => S.destroy, { hl: '#mode' });
+  go('Revenir à la construction', 'Appuyez de nouveau sur <kbd>Tab</kbd>.', () => !S.destroy, { hl: '#mode' });
+  go('Un habitant spécial arrive', 'Voici sa demande (panneau à gauche) : la <b>sous-catégorie</b> est donnée, le thème et la tuile exacte se devinent (ici tous les indices sont affichés). Posez une tuile de la bonne sous-catégorie : plus c\'est précis (thème, tuile exacte), meilleure est la récompense.', () => missionLevel().lv >= 1, { hl: '#mission', enter: () => { S.hintUntil = now() + 1e6; S.nextMission = 1e12; S.mission = null; spawnMission(); } });
+  go(sm ? 'Aider l\'habitant' : 'Accueillir l\'habitant', sm ? 'Cliquez sur <b>Aider</b> : vous gagnez des <b>stickers</b>, chacun débloque une nouvelle tuile (2, 4 ou 6 selon la précision). Cliquez sur « Tout retourner » puis « Continuer ».' : 'Cliquez sur <b>Accueillir</b> : il s\'installe en ville et vous gagnez des votes et de l\'argent selon la précision.', () => S.residents.length >= 1 && $('#reveal').hidden, { hl: '#m-ok' });
+  go('Le bonus de l\'habitant', 'Cliquez sur l\'habitant dans la ville (le personnage au diamant doré) pour activer son <b>bonus temporaire</b>.', () => S.residents.length && S.residents[0].ready - now() > 100, { enter: () => { S.residents.forEach(r => r.ready = 0); } });
+  info('Thèmes et synergies', 'Chaque tuile appartient à l\'un des <b>71 thèmes</b>. Poser des tuiles du même thème côte à côte renforce leur <b>adjacence</b>. Les <b>synergies</b> (tuiles du même thème à portée) sont <b>optionnelles</b> : elles donnent un bonus mais ne bloquent jamais la pose. Plus une tuile est rare (★), plus sa <b>portée</b> est grande.');
+  go('L\'Album', 'Ouvrez le menu (<kbd>Échap</kbd>) > <b>Album</b> : il regroupe tous les stickers et les 71 thèmes. Compléter un thème offre un <b>bonus permanent</b>. Une tuile placée au moins une fois devient holographique.', () => menuOpen() && U.tab === 'album', { hl: '#open-menu', enter: () => { closeMenu(); U.tab = 'people'; } });
+  st.push({ title: 'Tutoriel terminé', text: 'Objectif du jeu : <b>compléter l\'Album</b> puis placer la <b>tuile ultime</b>. Vous pouvez lancer une vraie partie ou continuer à explorer ici (rien n\'est sauvegardé).', end: true });
+  return st;
+}
+function startTuto(mode) {
+  TU = { mode, steps: tutoSteps(mode), i: 0, t: 0, ok: false, snap: {} };
+  document.body.classList.add('tuto'); tutoEnter();
+}
+function tutoEnter() {
+  const s = TU.steps[TU.i]; TU.snap = { x: cam.x, z: cam.z, yaw: cam.yaw, view: cam.view }; TU.ok = false;
+  if (s.enter) s.enter(); renderCoach();
+}
+function renderCoach() {
+  const s = TU.steps[TU.i], n = TU.steps.length, c = $('#coach'); c.hidden = false; c.classList.remove('done'); c.classList.remove('pop'); void c.offsetWidth; c.classList.add('pop');
+  const btns = s.end ? '<button class="go" id="co-start">Commencer une vraie partie</button><button class="ghost" id="co-stay">Continuer à explorer</button>'
+    : (s.btn ? '<button class="go" id="co-next">Suivant</button>' : '<button class="ghost" id="co-skip">Passer l\'étape</button>') + '<button class="ghost" id="co-quit">Quitter</button>';
+  c.innerHTML = `<div class="co-top"><span>Tutoriel · ${TU.mode === 'simple' ? 'Mode Simple' : 'Mode Classique'}</span><span>${TU.i + 1} / ${n}</span></div><div class="bar"><i style="width:${(TU.i + 1) / n * 100}%"></i></div><h3>${s.title}</h3><p>${s.text}</p><div class="co-btns">${btns}</div>`;
+  const q = id => c.querySelector(id);
+  if (q('#co-next')) q('#co-next').onclick = tutoNext;
+  if (q('#co-skip')) q('#co-skip').onclick = tutoNext;
+  if (q('#co-quit')) q('#co-quit').onclick = () => { noSave = true; location.reload(); };
+  if (q('#co-start')) q('#co-start').onclick = () => { sessionStorage.setItem('vx_auto', TU.mode + ':fresh'); noSave = true; location.reload(); };
+  if (q('#co-stay')) q('#co-stay').onclick = () => { TU = null; c.hidden = true; $('#coachhl').hidden = true; document.body.classList.remove('tuto'); S.nextMission = now() + 20; S.hintUntil = 0; };
+}
+function tutoNext() { if (!TU) return; sfx('click'); TU.i = Math.min(TU.i + 1, TU.steps.length - 1); tutoEnter(); }
+function tutoUpdate(dt) {
+  if (!TU) return;
+  const s = TU.steps[TU.i], hl = $('#coachhl');
+  let sel = typeof s.hl === 'function' ? s.hl() : s.hl, e = sel && document.querySelector(sel);
+  if (e && e.offsetParent !== null && !TU.ok) { const r = e.getBoundingClientRect(); Object.assign(hl.style, { left: r.left - 6 + 'px', top: r.top - 6 + 'px', width: r.width + 12 + 'px', height: r.height + 12 + 'px' }); hl.hidden = false; } else hl.hidden = true;
+  if (TU.ok) { TU.t -= dt; if (TU.t <= 0) tutoNext(); return; }
+  if (s.cond && s.cond()) { TU.ok = true; TU.t = .9; sfx('win'); $('#coach').classList.add('done'); confetti(innerWidth / 2, 190, 30); }
+}
+
 /* ===== INTERFACE ===== */
 const $ = s => document.querySelector(s);
 const el = (t, c, h) => { const e = document.createElement(t); if (c) e.className = c; if (h != null) e.innerHTML = h; return e; };
@@ -1601,7 +1688,7 @@ function infoFor(t, ev, c) {
     h = `<h4>${esc(t.name)} ${stars(t)}</h4><p class="sub">${esc(t.sub)}${t.theme >= 0 ? ' · ' + esc(D.themes[t.theme]) : ''} · portée ${rangeOf(t) >= 99 ? 'carte' : rangeOf(t) + ' case' + (rangeOf(t) > 1 ? 's' : '')}</p>
       ${sm ? '' : `<div class="r cost"><span>Coût</span><b class="${S.money >= ev.cost ? '' : 'b'}">${fmt(ev.cost)} $</b></div>`}${rows.join('')}
       ${mods.length ? '<ul class="mods">' + mods.map(m => `<li>${m}</li>`).join('') + '</ul>' : ''}
-      ${ev.reqs.length ? '<ul class="reqs">' + ev.reqs.map(q => `<li class="${q.ok ? 'ok' : 'ko'}">${q.ok ? '✓' : '✗'} ${esc(q.label)}${q.need ? ` (${q.have}/${q.need})` : ''}</li>`).join('') + '</ul>' : ''}
+      ${ev.reqs.length ? '<p class="synh">Synergie optionnelle : ' + (ev.synOK ? '<b class="g">bonus +25 % actif</b>' : 'bonus +25 % si réunie') + '</p><ul class="reqs">' + ev.reqs.map(q => `<li class="${q.ok ? 'ok' : 'ko'}">${q.ok ? '✓' : '○'} ${esc(q.label)}${q.need ? ` (${q.have}/${q.need})` : ''}</li>`).join('') + '</ul>' : ''}
       ${ev.errs.length ? `<p class="err">${esc(ev.errs[0])}</p>` : ''}`;
   } else if (c) {
     const rec = placed.get(keyOf(c.x, c.y));
@@ -1841,6 +1928,7 @@ const SIMPLE_RULES = `
 <h4>Thèmes et Album</h4>
 <ul><li>L'Album regroupe 71 thèmes. Chaque tuile placée au moins une fois devient holographique.</li>
 <li>Rassembler des tuiles du même thème renforce leur synergie d'adjacence.</li>
+<li>Les synergies sont optionnelles : elles donnent un bonus de +25 % aux habitants, mais n'empêchent jamais de poser une tuile.</li>
 <li>Plus une tuile est rare plus elle a de portée.</li>
 <li>Compléter un thème offre un bonus permanent lié.</li>
 <li>Les thèmes encouragent à construire des ensembles cohérents et à trouver de meilleures solutions aux demandes des habitants.</li></ul>`;
@@ -1854,8 +1942,8 @@ const CLASSIC_RULES = `
 <li><b>Loisirs</b> : gain et habitants multipliés par le prestige (Hameau ×1 à Métropole ×3).</li>
 <li><b>Productions</b> : boost d'argent des commerces et loisirs, malus d'habitants sur les habitations proches.</li>
 <li><b>Services</b> : boost d'habitants, malus d'argent des loisirs proches.</li>
-<li><b>Routes</b> : petit boost de réseau. Les ★★ et plus demandent une route à 2 cases.</li>
-<li><b>Portée</b> : Départ 1 case, ★ 2, ★★ 3, ★★★ 4, ★★★★ toute la carte. <b>Synergies</b> : une tuile ★★ ou plus demande des tuiles du même thème à portée. <b>Adjacence</b> : +8 % par voisine du même thème.</li></ul>
+<li><b>Routes</b> : petit boost de réseau.</li>
+<li><b>Portée</b> : Départ 1 case, ★ 2, ★★ 3, ★★★ 4, ★★★★ toute la carte. <b>Synergies (optionnelles)</b> : une tuile ★★ ou plus qui a des tuiles du même thème à portée (et une route à 2 cases) gagne +25 % de gain et d'habitants, sinon elle se pose quand même. <b>Adjacence</b> : +8 % par voisine du même thème.</li></ul>
 <h4>Habitants spéciaux et thèmes</h4>
 <ul><li>Un habitant spécial arrive environ toutes les 5 minutes avec une demande (sous-catégorie, thème ou tuile exacte, plus la précision est bonne plus la récompense est grande). Une fois installé, un clic sur lui active un bonus temporaire. Les anti-thèmes provoquent un malus.</li>
 <li>Compléter un thème offre un bonus permanent : Attractivité, Rendement, Popularité, Économie ou Portée.</li></ul>`;
@@ -1891,7 +1979,7 @@ function showStart() {
   const box = $('#st-cards'); box.innerHTML = '';
   const defs = [
     { mode: 'simple', name: 'Mode Simple', tag: 'Détente · sans argent', accent: '#3ddbb0', lines: ['Placez librement toutes les tuiles que vous avez débloquées.', 'Aidez les habitants spéciaux pour gagner des stickers.', 'Chaque sticker débloque une tuile, sans doublon.'], rules: SIMPLE_RULES },
-    { mode: 'classic', name: 'Mode Classique', tag: 'Économie · votes · packs', accent: '#ff7a45', lines: ['L\'argent se gagne à chaque pose de tuile, jamais avec le temps.', 'Vos habitants donnent des votes pour ouvrir des packs par catégorie.', 'Synergies, portées et plafonds à gérer.'], rules: CLASSIC_RULES }];
+    { mode: 'classic', name: 'Mode Classique', tag: 'Économie · votes · packs', accent: '#ff7a45', lines: ['L\'argent se gagne à chaque pose de tuile, jamais avec le temps.', 'Vos habitants donnent des votes pour ouvrir des packs par catégorie.', 'Synergies optionnelles, portées et plafonds à gérer.'], rules: CLASSIC_RULES }];
   defs.forEach((d, i) => {
     const info = saveInfo(d.mode), c = el('div', 'scard'); c.style.setProperty('--ac', d.accent); c.style.setProperty('--i', i);
     c.innerHTML = `<span class="stag">${d.tag}</span><h2>${d.name}</h2><ul>${d.lines.map(l => `<li>${l}</li>`).join('')}</ul><details><summary>Voir les règles</summary><div class="rules">${d.rules}</div></details><div class="sbtns"></div>`;
@@ -1899,7 +1987,8 @@ function showStart() {
     if (info) { const b = el('button', 'go', `Continuer <small>${info.placed} tuiles · ${info.owned}/${TOTAL} stickers</small>`); b.onclick = () => { sfx('click'); startGame(d.mode, false); }; bt.appendChild(b); }
     const n = el('button', info ? 'ghost' : 'go', 'Nouvelle partie'); let armed = 0;
     n.onclick = () => { if (info && !armed) { armed = 1; n.textContent = 'Écraser la sauvegarde ?'; setTimeout(() => { armed = 0; n.textContent = 'Nouvelle partie'; }, 3500); return; } sfx('click'); startGame(d.mode, true); };
-    bt.appendChild(n); box.appendChild(c);
+    bt.appendChild(n);
+    const tb = el('button', 'tutob', '▶ Tutoriel guidé'); tb.onclick = () => { sfx('click'); startGame(d.mode, true, { tuto: true }); }; bt.appendChild(tb); box.appendChild(c);
   });
   $('#start').hidden = false; $('#start').classList.remove('out');
 }
