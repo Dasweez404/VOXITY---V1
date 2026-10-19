@@ -398,9 +398,9 @@ const keys = {};
 addEventListener('keydown', e => {
   if (/input|select|textarea/i.test(e.target.tagName)) { if (e.key === 'Escape') e.target.blur(); return; }
   keys[e.code] = true;
-  if (e.code === 'Space') { e.preventDefault(); if (document.activeElement) document.activeElement.blur(); toggleMenu(); }
+  if (e.code === 'Space') { e.preventDefault(); if (document.activeElement) document.activeElement.blur(); if (!menuOpen()) toggleTray(); }
   else if (e.code === 'Tab') { e.preventDefault(); S.destroy = !S.destroy; uiDirty = true; sfx('click'); }
-  else if (e.code === 'Escape') { if (menuOpen()) closeMenu(); else toggleTray(); }
+  else if (e.code === 'Escape') toggleMenu();
   else if (e.key.toLowerCase() === 'q') { S.rot = (S.rot + 3) % 4; }
   else if (e.key.toLowerCase() === 'e') { S.rot = (S.rot + 1) % 4; }
   else if (/^Digit[1-8]$/.test(e.code) && !menuOpen()) { const id = S.recent[+e.code[5] - 1]; if (id != null) { selectTile(id); } }

@@ -7,8 +7,8 @@ Ouvrir `index.html` dans un navigateur (connexion requise pour charger Three.js 
 
 | Action | Commande |
 |---|---|
-| Menu (Album, Packs, Habitants, Aide) | Espace |
-| Barre de construction (vient du bas, filtres + recherche) | Échap |
+| Menu (Album, Packs, Habitants, Aide) | Échap |
+| Barre de construction (vient du bas, filtres + recherche) | Espace |
 | Construire | Clic gauche (maintenir pour tracer) |
 | Se déplacer | Clic droit + glisser |
 | Tourner la caméra | Clic molette + glisser |

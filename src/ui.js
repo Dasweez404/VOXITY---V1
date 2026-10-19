@@ -330,7 +330,7 @@ function renderHelp(body) {
   const w = el('div', 'help');
   w.innerHTML = `
   <div class="hcol"><h3>Commandes</h3>
-  <dl><dt><kbd>Espace</kbd></dt><dd>Ouvrir ou fermer ce menu</dd><dt><kbd>Échap</kbd></dt><dd>Barre de construction (ou fermer ce menu)</dd><dt>Clic gauche</dt><dd>Construire (maintenir pour tracer une ligne)</dd><dt>Clic droit + glisser</dt><dd>Se déplacer sur la carte</dd>
+  <dl><dt><kbd>Espace</kbd></dt><dd>Barre de construction (tuiles, filtres, recherche)</dd><dt><kbd>Échap</kbd></dt><dd>Menu (Album, Packs, Habitants, Aide), ouvre et ferme</dd><dt>Clic gauche</dt><dd>Construire (maintenir pour tracer une ligne)</dd><dt>Clic droit + glisser</dt><dd>Se déplacer sur la carte</dd>
   <dt>Clic molette + glisser</dt><dd>Tourner la caméra</dd><dt>Molette</dt><dd>Zoomer</dd><dt><kbd>Tab</kbd></dt><dd>Basculer en mode destruction (remboursement de 50 %)</dd>
   <dt><kbd>Q</kbd> <kbd>E</kbd></dt><dd>Pivoter la tuile</dd><dt><kbd>1</kbd>–<kbd>8</kbd></dt><dd>Tuiles récentes</dd><dt>Flèches</dt><dd>Déplacer la caméra</dd></dl></div>
   <div class="hcol"><h3>Règles</h3><ul>

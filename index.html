@@ -317,15 +317,15 @@ body{--night:0}
   <div class="stat" id="st-votes"><div class="top"><span class="ico" data-ico="vote"></span><b id="h-votes">0</b></div><div class="sub"><span>Points de vote</span></div></div>
   <div class="stat" id="st-album"><div class="top"><span class="ico" data-ico="book"></span><b id="h-album">0</b><small id="h-albumt"></small></div><div class="sub"><span>Album</span></div></div>
   <div id="buffs"></div><div class="spacer"></div>
-  <button id="open-tray"><kbd>Échap</kbd> Construire</button>
-  <button id="open-menu"><kbd>Espace</kbd> Menu</button>
+  <button id="open-tray"><kbd>Espace</kbd> Construire</button>
+  <button id="open-menu"><kbd>Échap</kbd> Menu</button>
 </div>
 <div id="mode"></div>
 <div id="mission" hidden></div>
 <div id="info" hidden></div>
 <div id="bottom"><div id="sel"></div><div id="hotbar"></div>
-  <div id="hint"><kbd>Espace</kbd> menu · Clic gauche construire<br>Clic droit déplacer · Clic molette tourner · <kbd>Tab</kbd> destruction</div></div>
-<div id="tray"><div class="tr-head"><div id="tr-cats" class="chips"></div><input id="tr-q" type="search" placeholder="Rechercher une tuile…" autocomplete="off"><button id="tr-close" title="Fermer (Échap)">Fermer <kbd>Échap</kbd></button></div><div id="tr-subs" class="chips"></div><div id="tr-list"></div></div>
+  <div id="hint"><kbd>Espace</kbd> construire · <kbd>Échap</kbd> menu · Clic gauche poser<br>Clic droit déplacer · Clic molette tourner · <kbd>Tab</kbd> destruction</div></div>
+<div id="tray"><div class="tr-head"><div id="tr-cats" class="chips"></div><input id="tr-q" type="search" placeholder="Rechercher une tuile…" autocomplete="off"><button id="tr-close" title="Fermer (Espace)">Fermer <kbd>Espace</kbd></button></div><div id="tr-subs" class="chips"></div><div id="tr-list"></div></div>
 <div id="toasts"></div>
 <div id="menu" hidden><div id="mpanel"><div id="mhead"><div id="tabs"></div><button id="menu-close">Fermer <kbd>Échap</kbd></button></div><div id="mbody"></div></div></div>
 <div id="reveal" hidden><div id="rays"></div><div id="rcards"></div><div class="rbtns"><button id="r-all">Tout retourner</button><button id="r-close" hidden>Continuer</button></div></div>
@@ -1026,9 +1026,9 @@ const keys = {};
 addEventListener('keydown', e => {
   if (/input|select|textarea/i.test(e.target.tagName)) { if (e.key === 'Escape') e.target.blur(); return; }
   keys[e.code] = true;
-  if (e.code === 'Space') { e.preventDefault(); if (document.activeElement) document.activeElement.blur(); toggleMenu(); }
+  if (e.code === 'Space') { e.preventDefault(); if (document.activeElement) document.activeElement.blur(); if (!menuOpen()) toggleTray(); }
   else if (e.code === 'Tab') { e.preventDefault(); S.destroy = !S.destroy; uiDirty = true; sfx('click'); }
-  else if (e.code === 'Escape') { if (menuOpen()) closeMenu(); else toggleTray(); }
+  else if (e.code === 'Escape') toggleMenu();
   else if (e.key.toLowerCase() === 'q') { S.rot = (S.rot + 3) % 4; }
   else if (e.key.toLowerCase() === 'e') { S.rot = (S.rot + 1) % 4; }
   else if (/^Digit[1-8]$/.test(e.code) && !menuOpen()) { const id = S.recent[+e.code[5] - 1]; if (id != null) { selectTile(id); } }
@@ -1718,7 +1718,7 @@ function renderHelp(body) {
   const w = el('div', 'help');
   w.innerHTML = `
   <div class="hcol"><h3>Commandes</h3>
-  <dl><dt><kbd>Espace</kbd></dt><dd>Ouvrir ou fermer ce menu</dd><dt><kbd>Échap</kbd></dt><dd>Barre de construction (ou fermer ce menu)</dd><dt>Clic gauche</dt><dd>Construire (maintenir pour tracer une ligne)</dd><dt>Clic droit + glisser</dt><dd>Se déplacer sur la carte</dd>
+  <dl><dt><kbd>Espace</kbd></dt><dd>Barre de construction (tuiles, filtres, recherche)</dd><dt><kbd>Échap</kbd></dt><dd>Menu (Album, Packs, Habitants, Aide), ouvre et ferme</dd><dt>Clic gauche</dt><dd>Construire (maintenir pour tracer une ligne)</dd><dt>Clic droit + glisser</dt><dd>Se déplacer sur la carte</dd>
   <dt>Clic molette + glisser</dt><dd>Tourner la caméra</dd><dt>Molette</dt><dd>Zoomer</dd><dt><kbd>Tab</kbd></dt><dd>Basculer en mode destruction (remboursement de 50 %)</dd>
   <dt><kbd>Q</kbd> <kbd>E</kbd></dt><dd>Pivoter la tuile</dd><dt><kbd>1</kbd>–<kbd>8</kbd></dt><dd>Tuiles récentes</dd><dt>Flèches</dt><dd>Déplacer la caméra</dd></dl></div>
   <div class="hcol"><h3>Règles</h3><ul>
