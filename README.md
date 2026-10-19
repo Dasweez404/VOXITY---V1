@@ -7,12 +7,18 @@ Ouvrir `index.html` dans un navigateur (connexion requise pour charger Three.js 
 
 | Action | Commande |
 |---|---|
-| Menu (Construire, Album, Packs, Habitants, Aide) | Espace |
+| Menu (Album, Packs, Habitants, Aide) | Espace |
+| Barre de construction (vient du bas, filtres + recherche) | Échap |
 | Construire | Clic gauche (maintenir pour tracer) |
 | Se déplacer | Clic droit + glisser |
 | Tourner la caméra | Clic molette + glisser |
 | Mode destruction | Tab |
 | Pivoter / tuiles récentes | Q, E / 1 à 8 |
+
+## Règles clés
+- Une seule tuile par `Asset_Name` (la plus basse en rareté) : 865 stickers dont 48 de départ. L'Excel enrichi marque les lignes retenues dans la colonne « Tuile retenue ».
+- L'argent ne se gagne qu'à la pose d'une tuile (commerces, loisirs, productions), jamais avec le temps. Les habitations ne rapportent rien seules. Sur une même case, remplacer une tuile ne rapporte que la différence avec le meilleur gain déjà perçu.
+- Les packs se choisissent par catégorie uniquement (5 stickers manquants de la catégorie).
 
 ## Visuels
 - 71 tuiles signature, une par thème (`src/themes.js`), utilisées pour les tuiles de la catégorie dominante du thème. Chaque thème a aussi son emblème dans l'Album.

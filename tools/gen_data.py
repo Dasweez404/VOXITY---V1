@@ -37,13 +37,13 @@ for r in rows:
         bM=round(.05+.025*s,3)
         vote=0
     elif cat=='Shops':
-        c0=SHOP[p]; cost=c0*CM[s]*jit(k,'k'); money=cost/(100+18*s)*jit(k,'m'); capM=round(cost*6)
+        c0=SHOP[p]; cost=c0*CM[s]*jit(k,'k'); money=cost*(2.0+.1*s)*jit(k,'m',.06); capM=round(cost*4)
         hab=round(cost/45); vote=0
     elif cat=='Fun':
-        c0=FUN[p]; cost=c0*CM[s]*jit(k,'k'); money=cost/(140+22*s)*jit(k,'m'); hab=round(cost/(18+4*s)*jit(k,'h')); capM=round(cost*3)
+        c0=FUN[p]; cost=c0*CM[s]*jit(k,'k'); money=cost*(1.2+.1*s)*jit(k,'m',.06); hab=round(cost/(18+4*s)*jit(k,'h')); capM=round(cost*2)
         vote=1+s
     elif cat=='Production':
-        c0,wb_,wm=PROD[p]; cost=c0*CM[s]*jit(k,'k'); money=cost/260
+        c0,wb_,wm=PROD[p]; cost=c0*CM[s]*jit(k,'k'); money=cost*.7
         bM=round((.06+.04*s)*wb_*jit(k,'b',.08),3); mH=round((.04+.03*s)*wm*jit(k,'w',.08),3)
     elif cat=='Services':
         c0=SERV[p]; cost=c0*CM[s]*jit(k,'k')
@@ -56,7 +56,7 @@ for r in rows:
         cost=c0*CM[s]*jit(k,'k')
         if p in NETWORK and theme!='#HILL#':
             bM=bH=round(.006*(1+s),3)
-    cost=max(3,round(cost)); money=round(money,2)
+    cost=max(3,round(cost)); money=round(money)
     data.append(dict(model=model,name=name,cat=cat,sub=sub,theme=theme,rar=rar,s=s,cost=cost,hab=hab,money=money,
         capH=capH,capM=capM,mH=mH,mM=mM,bM=bM,bH=bH,rng=RANGE[s],vote=vote,rlock=rlock,subs=subs,nowalk=bool(nowalk)))
     # écriture dans l'Excel
@@ -66,7 +66,19 @@ for r in rows:
     for key,val in vals.items(): r[hdr.index(key)].value=val
 wb.save(out_xlsx)
 
-themes=[t for t in themes if t!='#HILL#']
+best={}
+for i,d_ in enumerate(data):
+    b=best.get(d_['name'])
+    if b is None or d_['s']<data[b]['s']: best[d_['name']]=i
+keep=set(best.values())
+col=hdr.index('Asset Rarity')+ (len(hdr)-hdr.index('Asset Rarity'))
+ws.cell(row=1,column=len(hdr)+1,value='Tuile retenue (1 par Asset Name)')
+for i,r in enumerate(rows): ws.cell(row=r[0].row,column=len(hdr)+1,value=(i in keep))
+wb.save(out_xlsx)
+data=[d_ for i,d_ in enumerate(data) if i in keep]
+themes=[]
+for d_ in data:
+    if d_['theme']!='#HILL#' and d_['theme'] not in themes: themes.append(d_['theme'])
 cnt={t:sum(1 for d in data if d['theme']==t) for t in themes}
 # bonus de thème (additif) : type et valeur déterministes
 KINDS=['attr','rend','pop','eco','porte']

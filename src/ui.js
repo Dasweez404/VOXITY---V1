@@ -58,8 +58,8 @@ function animateHUD(dt) {
 }
 let hudKey = '';
 function refreshHUD() {
-  const p = pop(), inc = income();
-  $('#h-cap').textContent = '/ ' + fmt(tot.capM); $('#h-inc').textContent = '+' + f1(inc) + ' $/s';
+  const p = pop();
+  $('#h-cap').textContent = '/ ' + fmt(tot.capM); $('#h-inc').textContent = S.lastGain ? 'dernière pose +' + fmt(S.lastGain) + ' $' : 'gagné à chaque pose';
   $('#h-popcap').textContent = '/ ' + fmt(tot.capH); $('#h-pres').textContent = `${prestige.n} ×${prestige.m}`;
   $('#h-albumt').textContent = '/ ' + TOTAL;
   $('#h-moneybar').style.width = clamp(S.money / tot.capM * 100, 0, 100) + '%'; $('#h-popbar').style.width = clamp(p / tot.capH * 100, 0, 100) + '%';
@@ -68,7 +68,7 @@ function refreshHUD() {
   const bf = [...S.buffs.filter(b => b.until > now()).map(b => `<span class="chip good">${esc(BONUSES.find(x => x.id === b.id).n)} ${Math.ceil(b.until - now())} s</span>`),
     S.malus && S.malus.until > now() ? `<span class="chip bad">${esc(MALUS.find(x => x.id === S.malus.id).n)} ${Math.ceil(S.malus.until - now())} s</span>` : ''].join('');
   if (bf !== hudKey) { hudKey = bf; $('#buffs').innerHTML = bf; }
-  document.querySelectorAll('#speed button').forEach(b => b.classList.toggle('on', +b.dataset.s === S.speed));
+  if (trayIsOpen()) { if (trayOwned !== S.owned.size) renderTray(); refreshCosts(); }
   refreshSel(); refreshMission();
   if (menuOpen()) refreshMenuLive();
 }
@@ -96,7 +96,7 @@ function infoFor(t, ev, c) {
     const rows = [];
     if (t.cat === 0) rows.push(`<div class="r"><span>Habitants</span><b>+${f1(ev.hab)}</b></div><div class="r"><span>Capacité</span><b>+${fmt(t.capH)}</b></div>`);
     else if (ev.hab > 0) rows.push(`<div class="r"><span>Habitants</span><b>+${f1(ev.hab)}</b></div>`);
-    if (ev.money > 0) rows.push(`<div class="r"><span>Revenus</span><b>+${f1(ev.money)} $/s</b></div>`);
+    if (ev.money > 0) rows.push(`<div class="r"><span>Gain à la pose</span><b class="g">+${fmt(ev.pay)} $</b></div>${ev.pay < ev.money ? '<div class="r"><span>Déjà perçu ici</span><b class="b">−' + fmt(ev.money - ev.pay) + ' $</b></div>' : ''}<div class="r"><span>Solde net</span><b class="${ev.net >= 0 ? 'g' : 'b'}">${ev.net >= 0 ? '+' : '−'}${fmt(Math.abs(ev.net))} $</b></div>`);
     if (t.capM) rows.push(`<div class="r"><span>Plafond argent</span><b>+${fmt(t.capM)}</b></div>`);
     if (t.cat === 0 && t.bM) rows.push(`<div class="r"><span>Boost commerces</span><b class="g">${pc(t.bM)}</b></div>`);
     if (t.cat === 3) rows.push(`<div class="r"><span>Boost commerces/loisirs</span><b class="g">${pc(t.bM)}</b></div><div class="r"><span>Malus habitations</span><b class="b">${pc(-t.mH)}</b></div>`);
@@ -117,7 +117,7 @@ function infoFor(t, ev, c) {
     if (rec) {
       const st = T[rec.t];
       h = `<h4>${esc(st.name)} ${stars(st)}</h4><p class="sub">${esc(st.sub)}${st.theme >= 0 ? ' · ' + esc(D.themes[st.theme]) : ''}</p>
-      ${rec.h ? `<div class="r"><span>Habitants</span><b>${f1(rec.h)}</b></div>` : ''}${rec.m ? `<div class="r"><span>Revenus</span><b>${f1(rec.m)} $/s</b></div>` : ''}
+      ${rec.h ? `<div class="r"><span>Habitants</span><b>${f1(rec.h)}</b></div>` : ''}${rec.m ? `<div class="r"><span>Gain perçu</span><b>${fmt(rec.m)} $</b></div>` : ''}
       ${S.destroy ? `<p class="err">Clic gauche : détruire (+${fmt(rec.paid * .5)} $)</p>` : ''}`;
     }
   }
@@ -145,8 +145,8 @@ function refreshMission() {
 }
 
 /* ===== MENU ===== */
-const U = { tab: 'build', bCat: -1, bSub: '', bTheme: -1, bQ: '', bSort: 'cat', bLim: 90, aCat: -1, aSub: '', aTheme: -1, aQ: '', aOwn: 'all', aLim: 90, packCat: 0, packTheme: 0 };
-const TABS = [['build', 'Construire'], ['album', 'Album'], ['packs', 'Packs'], ['people', 'Habitants'], ['help', 'Aide']];
+const U = { tab: 'album', bCat: -1, bSub: '', bTheme: -1, bQ: '', bSort: 'cat', bLim: 90, aCat: -1, aSub: '', aTheme: -1, aQ: '', aOwn: 'all', aLim: 90, packCat: 0, packTheme: 0 };
+const TABS = [['album', 'Album'], ['packs', 'Packs'], ['people', 'Habitants'], ['help', 'Aide']];
 menuOpen = () => !$('#menu').hidden;
 function openMenu(tab) { if (tab) U.tab = tab; const m = $('#menu'); m.hidden = false; m.classList.remove('pop'); void m.offsetWidth; m.classList.add('pop'); renderMenu(); sfx('click'); }
 function closeMenu() { $('#menu').hidden = true; }
@@ -156,7 +156,7 @@ function renderMenu() {
   const tabs = $('#tabs'); tabs.innerHTML = '';
   TABS.forEach(([id, n]) => { const b = el('button', 'tab' + (U.tab === id ? ' on' : ''), n); b.onclick = () => { U.tab = id; renderMenu(); sfx('click'); }; tabs.appendChild(b); });
   const body = $('#mbody'); body.innerHTML = ''; body.classList.remove('swap'); void body.offsetWidth; body.classList.add('swap');
-  ({ build: renderBuild, album: renderAlbum, packs: renderPacks, people: renderPeople, help: renderHelp })[U.tab](body);
+  ({ album: renderAlbum, packs: renderPacks, people: renderPeople, help: renderHelp })[U.tab](body);
 }
 function refreshMenuLive() {
   const v = $('#m-votes'); if (v) v.textContent = fmt(S.votes);
@@ -164,6 +164,33 @@ function refreshMenuLive() {
   document.querySelectorAll('.cost[data-id]').forEach(c => { const t = T[+c.dataset.id]; c.classList.toggle('no', S.money < costOf(t)); });
   if (U.tab === 'people') { const w = $('#people-live'); if (w) w.innerHTML = peopleLive(); }
 }
+/* ===== BARRE DE CONSTRUCTION (indépendante du menu, vient du bas) ===== */
+let trayOwned = -1;
+const trayIsOpen = () => $('#tray').classList.contains('open');
+function openTray() { renderTray(); $('#tray').classList.add('open'); sfx('click'); }
+function closeTray() { $('#tray').classList.remove('open'); }
+function toggleTray() { trayIsOpen() ? closeTray() : openTray(); }
+function renderTray() {
+  const cats = $('#tr-cats'); cats.innerHTML = '';
+  const mk = (v, l, col) => { const b = el('button', 'cchip' + (U.bCat === v ? ' on' : ''), l); if (col) b.style.setProperty('--c', col); b.onclick = () => { U.bCat = v; U.bSub = ''; renderTray(); }; cats.appendChild(b); };
+  mk(-1, 'Tout'); D.cats.forEach((n, i) => mk(i, n, CATC[i]));
+  const subs = $('#tr-subs'); subs.innerHTML = ''; subs.hidden = U.bCat < 0;
+  if (U.bCat >= 0) {
+    const owned = new Set([...S.owned].flatMap(i => T[i].cat === U.bCat ? T[i].subs : []));
+    const mks = (v, l) => { const b = el('button', 'cchip sm' + (U.bSub === v ? ' on' : ''), l); b.style.setProperty('--c', CATC[U.bCat]); b.onclick = () => { U.bSub = v; renderTray(); }; subs.appendChild(b); };
+    mks('', 'Toutes'); SUBS[U.bCat].filter(x => owned.has(x)).forEach(x => mks(x, x));
+  }
+  $('#tr-q').value = U.bQ; renderTrayList();
+}
+function renderTrayList() {
+  trayOwned = S.owned.size;
+  const qq = U.bQ.trim().toLowerCase(), box = $('#tr-list'); box.innerHTML = '';
+  const list = [...S.owned].map(i => T[i]).filter(t => (U.bCat < 0 || t.cat === U.bCat) && (!U.bSub || t.subs.includes(U.bSub)) && (!qq || (t.name + ' ' + t.sub + ' ' + (t.theme >= 0 ? D.themes[t.theme] : '')).toLowerCase().includes(qq))).sort(sorters.cat);
+  list.forEach((t, i) => { const c = tileCard(t, { cost: true, stats: true, sel: true, click: t => { selectTile(t.id); closeTray(); } }); c.style.setProperty('--i', Math.min(i, 14)); box.appendChild(c); });
+  if (!list.length) box.appendChild(el('p', 'empty', 'Aucune tuile débloquée ne correspond. Ouvrez des packs pour en obtenir de nouvelles.'));
+}
+function refreshCosts() { document.querySelectorAll('#tr-list .cost[data-id]').forEach(c => { const t = T[+c.dataset.id], v = fmt(costOf(t)) + ' $'; c.classList.toggle('no', S.money < costOf(t)); if (c.textContent !== v) c.textContent = v; }); }
+
 function selectEl(opts, val, cb, cls = '') {
   const s = el('select', cls); opts.forEach(([v, l]) => { const o = el('option', '', esc(l)); o.value = v; if (String(v) === String(val)) o.selected = true; s.appendChild(o); }); s.onchange = () => cb(s.value); return s;
 }
@@ -189,7 +216,7 @@ function tileCard(t, o = {}) {
 }
 function statLine(t) {
   const a = [`${t.name} — ${RARN[t.s]} · portée ${t.rng >= 99 ? 'carte' : t.rng}`];
-  if (t.hab) a.push('habitants ' + t.hab); if (t.capH) a.push('capacité +' + t.capH); if (t.money) a.push('revenus ' + t.money + ' $/s'); if (t.capM) a.push('plafond +' + t.capM);
+  if (t.hab) a.push('habitants ' + t.hab); if (t.capH) a.push('capacité +' + t.capH); if (t.money) a.push('gain à la pose ~' + t.money + ' $'); if (t.capM) a.push('plafond +' + t.capM);
   if (t.bM) a.push('boost argent ' + pc(t.bM)); if (t.bH) a.push('boost habitants ' + pc(t.bH)); if (t.mH) a.push('malus habitants ' + pc(-t.mH)); if (t.mM) a.push('malus argent ' + pc(-t.mM)); if (t.vote) a.push('+' + t.vote + ' vote(s)');
   return a.join(' · ');
 }
@@ -200,24 +227,6 @@ function gridInto(parent, list, lim, onMore, o) {
 }
 const hillRank = t => (t.cat === 5 && t.theme < 0) ? 1 : 0;
 const sorters = { cat: (a, b) => hillRank(a) - hillRank(b) || a.cat - b.cat || a.sub.localeCompare(b.sub, 'fr') || a.s - b.s || a.cost - b.cost, cost: (a, b) => a.cost - b.cost, rar: (a, b) => b.s - a.s || a.cost - b.cost, name: (a, b) => a.name.localeCompare(b.name, 'fr') };
-
-function renderBuild(body) {
-  const f = el('div', 'filters');
-  f.appendChild(catChips(U.bCat, v => { U.bCat = v; U.bSub = ''; U.bLim = 90; renderMenu(); }));
-  const row = el('div', 'frow');
-  row.appendChild(selectEl(subOpts(U.bCat), U.bSub, v => { U.bSub = v; U.bLim = 90; renderMenu(); }));
-  row.appendChild(selectEl(themeOpts(), U.bTheme, v => { U.bTheme = +v; U.bLim = 90; renderMenu(); }));
-  row.appendChild(selectEl([['cat', 'Trier : catégorie'], ['cost', 'Trier : prix'], ['rar', 'Trier : rareté'], ['name', 'Trier : nom']], U.bSort, v => { U.bSort = v; renderMenu(); }));
-  const q = el('input'); q.type = 'search'; q.placeholder = 'Rechercher…'; q.value = U.bQ; q.id = 'bq';
-  q.oninput = () => { U.bQ = q.value; U.bLim = 90; clearTimeout(q._t); q._t = setTimeout(() => { renderMenu(); const n = $('#bq'); n.focus(); n.setSelectionRange(99, 99); }, 250); };
-  row.appendChild(q); f.appendChild(row); body.appendChild(f);
-  const qq = U.bQ.trim().toLowerCase();
-  let list = [...S.owned].map(i => T[i]).filter(t => (U.bCat < 0 || t.cat === U.bCat) && (!U.bSub || t.subs.includes(U.bSub)) && (U.bTheme < 0 || t.theme === U.bTheme) && (!qq || (t.name + ' ' + t.sub + (t.theme >= 0 ? D.themes[t.theme] : '')).toLowerCase().includes(qq)));
-  list.sort(sorters[U.bSort]);
-  body.appendChild(el('p', 'count', `${list.length} tuile${list.length > 1 ? 's' : ''} débloquée${list.length > 1 ? 's' : ''}. Cliquez pour sélectionner.`));
-  const wrap = el('div', 'scroll'); body.appendChild(wrap);
-  gridInto(wrap, list, U.bLim, () => { U.bLim += 120; renderMenu(); }, { cost: true, stats: true, sel: true, click: t => { selectTile(t.id); closeMenu(); } });
-}
 
 function bonusLabel(b) {
   return { attr: `Attractivité +${(b.val * 100).toFixed(1).replace('.', ',')} % habitants`, rend: `Rendement +${(b.val * 100).toFixed(1).replace('.', ',')} % argent`, pop: `Popularité +${(b.val * 100).toFixed(1).replace('.', ',')} % votes`,
@@ -259,27 +268,22 @@ function renderAlbum(body) {
 }
 
 function renderPacks(body) {
-  const w = el('div', 'packs');
-  w.appendChild(el('div', 'pk-intro', `<p>Chaque habitant donne <b>1 point de vote</b> la première fois qu'il s'installe. Un pack contient <b>5 stickers que vous n'avez pas encore</b> : jamais de doublon.</p><p class="votes"><span class="ico">${IC.vote}</span><b id="m-votes">${fmt(S.votes)}</b> points de vote</p>`));
-  const left = D.cats.map((_, c) => T.filter(t => !t.ult && t.cat === c && !S.owned.has(t.id)).length);
-  const lt = D.themes.map((_, c) => themeTiles[c].filter(i => !S.owned.has(i)).length);
-  const mk = (kind, title, desc, ctrl, key) => {
-    const price = packPrice(kind), c = el('div', 'pack ' + kind);
-    c.innerHTML = `<div class="art"><i></i><i></i><i></i></div><h3>${title}</h3><p>${desc}</p>`;
-    if (ctrl) c.appendChild(ctrl);
-    const b = el('button', 'packbtn', `Ouvrir · ${price} votes`); b.dataset.price = price; b.disabled = S.votes < price;
+  const w = el('div', 'packs'), price = packPrice();
+  w.appendChild(el('div', 'pk-intro', `<p>Chaque habitant donne <b>1 point de vote</b> la première fois qu'il s'installe. Un pack contient <b>5 stickers d'une catégorie</b> que vous n'avez pas encore : jamais de doublon. Les stickers ★★★★ sont les plus rares.</p><p class="votes"><span class="ico">${IC.vote}</span><b id="m-votes">${fmt(S.votes)}</b> points de vote</p>`));
+  const CD = ['Maisons, villas, immeubles, gratte-ciels', 'Boutiques, restaurants, stands', 'Plages, parcs, sport, attractions', 'Fermes, usines, chantiers, énergie', 'Écoles, hôpitaux, institutions', 'Routes, rails, ponts, véhicules, décor'];
+  D.cats.forEach((name, c) => {
+    const left = T.filter(t => !t.ult && t.cat === c && !S.owned.has(t.id)).length, tot_ = T.filter(t => !t.ult && t.cat === c).length;
+    const k = el('div', 'pack'); k.style.setProperty('--pc', CATC[c]);
+    k.innerHTML = `<div class="art"><i></i><i></i><i></i><b>${esc(name)}</b></div><h3>Pack ${esc(name)}</h3><p>${CD[c]}.</p><div class="bar"><i style="width:${(tot_ - left) / tot_ * 100}%"></i></div><small>${tot_ - left} / ${tot_} obtenus</small>`;
+    const b = el('button', 'packbtn', left ? `Ouvrir · ${price} votes` : 'Catégorie complète'); b.dataset.price = left ? price : 99999; b.disabled = !left || S.votes < price;
     b.onclick = () => {
       if (S.votes < price) { toast('Pas assez de votes.', 'bad'); return; }
-      c.classList.add('shake'); sfx('click'); b.disabled = true;
-      setTimeout(() => { c.classList.remove('shake'); const out = drawPack(kind, key()); if (!out) { toast('Plus aucun sticker dans cette sélection.', 'bad'); return; } showReveal(out); }, 420);
+      k.classList.add('shake'); sfx('click'); b.disabled = true;
+      setTimeout(() => { k.classList.remove('shake'); const out = drawPack(c); if (!out) { toast('Plus aucun sticker dans cette catégorie.', 'bad'); return; } showReveal(out); }, 420);
     };
-    c.appendChild(b); w.appendChild(c);
-  };
-  mk('std', 'Pack Classique', '5 stickers au hasard parmi ceux qui vous manquent. Les ★★★★ sont rares.', null, () => 0);
-  mk('cat', 'Pack Catégorie', 'Choisissez une catégorie : 5 stickers manquants de celle-ci.', selectEl(D.cats.map((n, i) => [i, `${n} (${left[i]} manquants)`]), U.packCat, v => { U.packCat = +v; }), () => U.packCat);
-  mk('theme', 'Pack Thème', 'Ciblez un thème pour décrocher son bonus permanent.', selectEl(D.themes.map((n, i) => [i, `${n} (${lt[i]} manquants)`]).filter(x => lt[x[0]] > 0).sort((a, b) => a[1].localeCompare(b[1], 'fr')), U.packTheme, v => { U.packTheme = +v; }), () => U.packTheme);
+    k.appendChild(b); w.appendChild(k);
+  });
   body.appendChild(w);
-  if (!lt[U.packTheme]) { const f = lt.findIndex(x => x > 0); if (f >= 0) U.packTheme = f; }
 }
 function showReveal(cards) {
   const ov = $('#reveal'), row = $('#rcards'); ov.hidden = false; row.innerHTML = ''; let flipped = 0;
@@ -315,23 +319,23 @@ function renderHelp(body) {
   const w = el('div', 'help');
   w.innerHTML = `
   <div class="hcol"><h3>Commandes</h3>
-  <dl><dt><kbd>Espace</kbd></dt><dd>Ouvrir ou fermer ce menu</dd><dt>Clic gauche</dt><dd>Construire (maintenir pour tracer une ligne)</dd><dt>Clic droit + glisser</dt><dd>Se déplacer sur la carte</dd>
+  <dl><dt><kbd>Espace</kbd></dt><dd>Ouvrir ou fermer ce menu</dd><dt><kbd>Échap</kbd></dt><dd>Barre de construction (ou fermer ce menu)</dd><dt>Clic gauche</dt><dd>Construire (maintenir pour tracer une ligne)</dd><dt>Clic droit + glisser</dt><dd>Se déplacer sur la carte</dd>
   <dt>Clic molette + glisser</dt><dd>Tourner la caméra</dd><dt>Molette</dt><dd>Zoomer</dd><dt><kbd>Tab</kbd></dt><dd>Basculer en mode destruction (remboursement de 50 %)</dd>
   <dt><kbd>Q</kbd> <kbd>E</kbd></dt><dd>Pivoter la tuile</dd><dt><kbd>1</kbd>–<kbd>8</kbd></dt><dd>Tuiles récentes</dd><dt>Flèches</dt><dd>Déplacer la caméra</dd></dl></div>
   <div class="hcol"><h3>Règles</h3><ul>
   <li><b>Habitations</b> : habitants, capacité de population, boost d'argent des commerces voisins.</li>
-  <li><b>Commerces</b> : argent, plafond d'argent, quelques habitants.</li>
-  <li><b>Loisirs</b> : argent et habitants multipliés par le prestige (Hameau ×1 à Métropole ×3).</li>
+  <li><b>Argent</b> : il se gagne uniquement à la pose d'une tuile (commerces, loisirs, productions), jamais avec le temps. Les habitations ne rapportent rien seules. Remplacer une tuile sur une case ne rapporte que la différence.</li>
+  <li><b>Commerces</b> : gros gain à la pose, plafond d'argent, quelques habitants.</li>
+  <li><b>Loisirs</b> : gain et habitants à la pose multipliés par le prestige (Hameau ×1 à Métropole ×3).</li>
   <li><b>Productions</b> : boost d'argent des commerces et loisirs, malus d'habitants sur les habitations proches.</li>
   <li><b>Services</b> : boost d'habitants des habitations et loisirs, malus d'argent des loisirs proches.</li>
-  <li><b>Mairie</b> : la ville rapporte 1 $/s de base.</li>
   <li><b>Routes</b> : un petit boost de réseau. Les ★★ et plus (hors routes) demandent une route à 2 cases.</li>
   <li><b>Portée</b> : Départ 1 case, ★ 2, ★★ 3, ★★★ 4, ★★★★ toute la carte. Un effet ne touche que les tuiles posées après la source, dans sa portée.</li>
   <li><b>Synergies</b> : une tuile ★★ ou plus demande des tuiles du même thème à portée (2, 3 puis 5).</li>
   <li><b>Adjacence</b> : +8 % par voisine du même thème, jusqu'à +64 %.</li>
   <li><b>Thème complet</b> : bonus permanent additif (Attractivité, Rendement, Popularité, Économie, Portée).</li>
   <li><b>Objectif</b> : compléter l'Album (${TOTAL} stickers) puis placer la Tour Voxity.</li></ul></div>
-  <div class="hcol"><h3>Partie</h3><p>Vitesse du temps</p><div id="speed2" class="speedrow"></div>
+  <div class="hcol"><h3>Partie</h3><p>Vitesse du temps (missions, bonus, jour et nuit)</p><div id="speed2" class="speedrow"></div>
   <p class="mut">Sauvegarde automatique dans ce navigateur.</p><button id="reset" class="danger">Réinitialiser la partie</button></div>`;
   body.appendChild(w);
   const sp = w.querySelector('#speed2'); [1, 2, 5, 10].forEach(s => { const b = el('button', S.speed === s ? 'on' : '', '×' + s); b.onclick = () => { S.speed = s; renderMenu(); }; sp.appendChild(b); });
@@ -351,9 +355,11 @@ function buildUI() {
   mb.addEventListener('pointerout', e => { const c = e.target.closest && e.target.closest('.card'); if (c) { c.style.setProperty('--ry', '0deg'); c.style.setProperty('--rx', '0deg'); } });
   $('#menu-close').onclick = closeMenu; $('#menu').addEventListener('pointerdown', e => { if (e.target.id === 'menu') closeMenu(); });
   $('#open-menu').onclick = () => toggleMenu();
-  document.querySelectorAll('#speed button').forEach(b => b.onclick = () => { S.speed = +b.dataset.s; uiDirty = true; });
+  $('#open-tray').onclick = toggleTray; $('#tr-close').onclick = closeTray;
+  $('#tr-q').oninput = () => { U.bQ = $('#tr-q').value; renderTrayList(); };
+  $('#tr-list').addEventListener('wheel', e => { if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { e.currentTarget.scrollLeft += e.deltaY; e.preventDefault(); } }, { passive: false });
   document.querySelectorAll('[data-ico]').forEach(e => e.innerHTML = IC[e.dataset.ico]);
   $('#mode').onclick = () => { S.destroy = !S.destroy; uiDirty = true; };
   refreshHUD();
 }
-window.__game = { forcePlace: (id, x, y) => { const rec = { t: id, x, y, rot: 0, h: 0, m: 0, paid: 0 }; placed.set(keyOf(x, y), rec); addObj(rec, false); }, sigTile, D, burst, confetti, banner, cits,  get S() { return S; }, T, placed, evaluate, place, destroyAt, drawPack, spawnMission, welcome, thumb, tick, recalc, get tot() { return tot; }, get agg() { return agg; }, cam, updateCamera, openMenu, selectTile, missionLevel, income, pop };
+window.__game = { openTray, closeTray, avgRev,  forcePlace: (id, x, y) => { const rec = { t: id, x, y, rot: 0, h: 0, m: 0, paid: 0 }; placed.set(keyOf(x, y), rec); addObj(rec, false); }, sigTile, D, burst, confetti, banner, cits,  get S() { return S; }, T, placed, evaluate, place, destroyAt, drawPack, spawnMission, welcome, thumb, tick, recalc, get tot() { return tot; }, get agg() { return agg; }, cam, updateCamera, openMenu, selectTile, missionLevel, pop };

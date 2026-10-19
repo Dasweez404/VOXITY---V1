@@ -8,7 +8,7 @@ const T = D.tiles.map((a, i) => ({
   hab: a[7], money: a[8], capH: a[9], capM: a[10], mH: a[11], mM: a[12], bM: a[13], bH: a[14], vote: a[15], rlock: a[16], walk: a[17], rng: RANGES[a[5]]
 }));
 const ULT = T.length;
-T.push({ id: ULT, model: 'VOXITY_Tower', name: 'Tour Voxity', cat: 0, sub: 'Monument', subs: ['Monument'], theme: -1, s: 4, cost: 400000, hab: 0, money: 0, capH: 0, capM: 0, mH: 0, mM: 0, bM: 0, bH: 0, vote: 0, rlock: 'LOCK', rng: 99, ult: true });
+T.push({ id: ULT, model: 'VOXITY_Tower', name: 'Tour Voxity', cat: 0, sub: 'Monument', subs: ['Monument'], theme: -1, s: 4, cost: 150000, hab: 0, money: 0, capH: 0, capM: 0, mH: 0, mM: 0, bM: 0, bH: 0, vote: 0, rlock: 'LOCK', rng: 99, ult: true });
 const TOTAL = ULT;             // nombre de stickers de l'Album (sans la tuile ultime)
 const themeTiles = D.themes.map(() => []);
 T.forEach(t => { if (t.theme >= 0) themeTiles[t.theme].push(t.id); });
@@ -20,11 +20,11 @@ const BASE_CAPH = 15, BASE_CAPM = 1000;
 const FIRST = ['Léa', 'Hugo', 'Inès', 'Maël', 'Camille', 'Noor', 'Yanis', 'Zoé', 'Tom', 'Aïcha', 'Louis', 'Manon', 'Elio', 'Sana', 'Jules', 'Rosa', 'Malo', 'Nina', 'Ravi', 'Clara', 'Théo', 'Mina', 'Oscar', 'Lila'];
 const JOBS = ['pompier', 'boulangère', 'architecte', 'musicien', 'jardinière', 'pilote', 'cuisinier', 'professeure', 'mécanicien', 'photographe', 'explorateur', 'maire retraité', 'critique gastronomique', 'ingénieure', 'skipper', 'fleuriste'];
 const BONUSES = [
-  { id: 'tour', n: 'Afflux de touristes', d: L => `Revenus ×${[1.5, 2, 3][L - 1]} pendant ${[40, 55, 75][L - 1]} s` },
+  { id: 'tour', n: 'Afflux de touristes', d: L => `Revenus de pose ×${[1.5, 2, 3][L - 1]} pendant ${[40, 55, 75][L - 1]} s` },
   { id: 'spot', n: 'Coup de projecteur', d: L => `Votes bonus immédiats (×${L})` },
   { id: 'chan', n: 'Chantier solidaire', d: L => `Coûts −${[20, 35, 50][L - 1]} % pendant 60 s` },
-  { id: 'bour', n: 'Bourse du quartier', d: L => `Argent immédiat (${[60, 120, 240][L - 1]} s de revenus)` }];
-const MALUS = [{ id: 'strike', n: 'Grève', d: 'Revenus −50 %' }, { id: 'press', n: 'Mauvaise presse', d: 'Plus de votes' }, { id: 'tax', n: 'Taxe exceptionnelle', d: 'Coûts +40 %' }];
+  { id: 'bour', n: 'Bourse du quartier', d: L => `Argent immédiat (${[3, 6, 12][L - 1]} poses moyennes)` }];
+const MALUS = [{ id: 'strike', n: 'Grève', d: 'Revenus de pose −50 %' }, { id: 'press', n: 'Mauvaise presse', d: 'Plus de votes' }, { id: 'tax', n: 'Taxe exceptionnelle', d: 'Coûts +40 %' }];
 
 /* ===== ÉTAT ===== */
 const SAVEKEY = 'voxity_save_v1';
@@ -32,13 +32,13 @@ let S, placed = new Map(), agg, tot, prestige;
 const keyOf = (x, y) => x + y * N;
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 function newState() {
-  return { money: 500, votes: 20, owned: new Set(T.filter(t => t.s === 0 && !t.ult).map(t => t.id)), peak: 0, packs: 0, time: 0, rot: 0, sel: -1, recent: [], everPlaced: new Set(),
+  return { money: 250, cellMax: {}, lastGain: 0, subsidyAt: 0, votes: 20, owned: new Set(T.filter(t => t.s === 0 && !t.ult).map(t => t.id)), peak: 0, packs: 0, time: 0, rot: 0, sel: -1, recent: [], everPlaced: new Set(),
     mission: null, nextMission: 70, residents: [], archive: [], buffs: [], malus: null, speed: 1, won: false, uid: 1, destroy: false, seenIntro: false };
 }
 function save() {
   try {
     localStorage.setItem(SAVEKEY, JSON.stringify({ v: 1, money: S.money, votes: S.votes, owned: [...S.owned], peak: S.peak, packs: S.packs, time: S.time, rot: S.rot, sel: S.sel, recent: S.recent,
-      ever: [...S.everPlaced], mission: S.mission, nextMission: S.nextMission, residents: S.residents, archive: S.archive, buffs: S.buffs, malus: S.malus, speed: S.speed, won: S.won, uid: S.uid,
+      ever: [...S.everPlaced], mission: S.mission, nextMission: S.nextMission, residents: S.residents, archive: S.archive, buffs: S.buffs, malus: S.malus, speed: S.speed, won: S.won, uid: S.uid, cellMax: S.cellMax, lastGain: S.lastGain, subsidyAt: S.subsidyAt,
       placed: [...placed.values()].map(r => [r.t, r.x, r.y, r.rot, r.h, r.m, r.paid]) }));
   } catch (e) { }
 }
@@ -47,7 +47,7 @@ function load() {
   try {
     const j = JSON.parse(localStorage.getItem(SAVEKEY) || 'null'); if (!j) return false;
     Object.assign(S, { money: j.money, votes: j.votes, owned: new Set(j.owned), peak: j.peak, packs: j.packs, time: j.time, rot: j.rot, sel: j.sel, recent: j.recent || [], everPlaced: new Set(j.ever),
-      mission: j.mission, nextMission: j.nextMission, residents: j.residents || [], archive: j.archive || [], buffs: j.buffs || [], malus: j.malus, speed: j.speed || 1, won: j.won, uid: j.uid || 1, seenIntro: true });
+      mission: j.mission, nextMission: j.nextMission, residents: j.residents || [], archive: j.archive || [], buffs: j.buffs || [], malus: j.malus, speed: j.speed || 1, won: j.won, uid: j.uid || 1, cellMax: j.cellMax || {}, lastGain: j.lastGain || 0, subsidyAt: j.subsidyAt || 0, seenIntro: true });
     j.placed.forEach(a => placed.set(keyOf(a[1], a[2]), { t: a[0], x: a[1], y: a[2], rot: a[3], h: a[4], m: a[5], paid: a[6] }));
     return true;
   } catch (e) { S = newState(); placed.clear(); return false; }
@@ -63,8 +63,8 @@ function recalc() {
     if (b.kind === 'attr') agg.attr += b.val; else if (b.kind === 'rend') agg.rend += b.val; else if (b.kind === 'pop') agg.pop += b.val;
     else if (b.kind === 'eco') agg.eco[b.ecoCat] = Math.min(.6, agg.eco[b.ecoCat] + b.val); else agg.porte.add(i);
   });
-  tot = { h: 0, capH: BASE_CAPH, capM: BASE_CAPM, mOther: 0, mFun: 0, n: 0 };
-  placed.forEach(r => { const st = T[r.t]; tot.h += r.h; tot.capH += st.capH; tot.capM += st.capM; if (st.cat === 2) tot.mFun += r.m; else tot.mOther += r.m; if (st.cat !== 5) tot.n++; });
+  tot = { h: 0, capH: BASE_CAPH, capM: BASE_CAPM, n: 0, rev: 0, nrev: 0 };
+  placed.forEach(r => { const st = T[r.t]; tot.h += r.h; tot.capH += st.capH; tot.capM += st.capM; if (r.m > 0) { tot.rev += r.m; tot.nrev++; } if (st.cat !== 5) tot.n++; });
   if (albumDone()) tot.capM = Math.max(tot.capM, T[ULT].cost * 1.1);
   prestige = PRESTIGE.filter(p => pop() >= p.at).pop();
 }
@@ -74,12 +74,9 @@ const pop = () => Math.min(tot.h, tot.capH);
 const now = () => S.time;
 const activeBuff = id => S.buffs.filter(b => b.until > now() && b.id === id);
 const malusOn = id => S.malus && S.malus.until > now() && S.malus.id === id;
-function income() {
-  let m = (1 + tot.mOther + tot.mFun * prestige.m) * (1 + agg.rend);
-  activeBuff('tour').forEach(b => m *= b.mult);
-  if (malusOn('strike')) m *= .5;
-  return m;
-}
+/* revenu moyen d'une pose rentable : sert aux bonus d'argent immédiats */
+const avgRev = () => tot.nrev ? tot.rev / tot.nrev : 120;
+const revMult = () => { let m = 1 + agg.rend; activeBuff('tour').forEach(b => m *= b.mult); if (malusOn('strike')) m *= .5; return m; };
 function costMult() { let m = 1; activeBuff('chan').forEach(b => m *= b.mult); if (malusOn('tax')) m *= 1.4; return m; }
 function costOf(t) {
   if (t.ult) return t.cost;
@@ -89,7 +86,7 @@ function costOf(t) {
   return Math.max(1, Math.round(c * costMult()));
 }
 const rangeOf = t => t.rng >= 99 ? 99 : t.rng + (t.theme >= 0 && agg.porte.has(t.theme) ? 1 : 0);
-const packPrice = kind => Math.round((25 + ownedCount() / 50) * (kind === 'cat' ? 1.4 : kind === 'theme' ? 1.8 : 1));
+const packPrice = () => Math.round(20 + 40 * ownedCount() / TOTAL);
 const SYN_BASE = { 2: 2, 3: 3, 4: 5 };
 
 function evaluate(t, x, y) {
@@ -123,9 +120,10 @@ function evaluate(t, x, y) {
   }
   const adjM = 1 + Math.min(.64, .08 * r.adj);
   r.mm = clamp(1 + bM - mM, .25, 3.5); r.hm = clamp(1 + bH - mH, .25, 3.5); r.adjM = adjM;
-  r.money = t.money * ((t.cat === 1 || t.cat === 2) ? r.mm : 1) * adjM;
+  r.money = t.money > 0 ? t.money / t.cost * r.cost * ((t.cat === 1 || t.cat === 2) ? r.mm : 1) * adjM * revMult() * (t.cat === 2 ? prestige.m : 1) : 0;
   r.hab = t.hab * ((t.cat === 0 || t.cat === 2) ? r.hm : 1) * adjM * (1 + agg.attr) * (t.cat === 2 ? prestige.m : 1);
-  r.hab = Math.round(r.hab * 10) / 10; r.money = Math.round(r.money * 100) / 100;
+  r.hab = Math.round(r.hab * 10) / 10; r.money = Math.round(r.money);
+  r.pay = Math.max(0, r.money - (S.cellMax[keyOf(x, y)] || 0)); r.net = r.pay - r.cost;
   return r;
 }
 
@@ -219,12 +217,13 @@ function place(x, y) {
   const t = T[S.sel]; if (!t || !S.owned.has(t.id)) return false;
   const ev = evaluate(t, x, y);
   if (!ev.ok) { if (ev.errs.length) flash(ev.errs[0]); return false; }
-  S.money -= ev.cost;
-  const rec = { t: t.id, x, y, rot: S.rot, h: ev.hab, m: ev.money, paid: ev.cost };
+  const rec = { t: t.id, x, y, rot: S.rot, h: ev.hab, m: ev.pay, paid: ev.cost };
   placed.set(keyOf(x, y), rec); addObj(rec, true);
+  S.cellMax[keyOf(x, y)] = Math.max(S.cellMax[keyOf(x, y)] || 0, ev.money);
   if (!S.everPlaced.has(t.id)) { S.everPlaced.add(t.id); S.votes += t.vote * (1 + agg.pop); }
   S.recent = [t.id, ...S.recent.filter(i => i !== t.id)].slice(0, 8);
-  recalc(); settlePop(); sfx(t.s >= 3 ? 'rare' : 'place');
+  recalc(); S.money = Math.min(tot.capM, Math.max(0, S.money - ev.cost) + ev.pay); S.lastGain = ev.pay;
+  settlePop(); sfx(t.s >= 3 ? 'rare' : 'place');
   placeFx(t, x, y, ev);
   if (S.mission && S.mission.anti >= 0 && t.theme === S.mission.anti) failMission(true);
   if (t.ult) win();
@@ -248,7 +247,8 @@ function placeFx(t, x, y, ev) {
   burst(wp.x, .15, wp.z, col, 12 + t.s * 7, 1.6 + t.s * .35, .055 + t.s * .01); ring(wp.x, wp.z, col, 1 + t.s * .25);
   floatText(wp.x, .7, wp.z, '−' + fmt(ev.cost) + ' $', 'neg');
   if (ev.hab > 0) floatText(wp.x, .7, wp.z, '+' + f1(ev.hab) + ' hab.', 'pop', 140);
-  if (ev.money > 0) floatText(wp.x, .7, wp.z, '+' + f1(ev.money) + ' $/s', 'gold', 280);
+  if (ev.pay > 0) floatText(wp.x, .7, wp.z, '+' + fmt(ev.pay) + ' $', 'gold', 280);
+  else if (ev.money > 0) floatText(wp.x, .7, wp.z, 'déjà perçu', 'neg', 280);
   if (t.s >= 3) { cam.shake = .12 + t.s * .05; pillar(wp.x, wp.z, col); burst(wp.x, .3, wp.z, 0xffc94a, 18, 2.2, .05); }
   if (t.s >= 4) flashScreen(CATC[t.cat]);
   if (t.theme >= 0) { /* adjacence : étincelles vers les voisines du même thème */ for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) { const o = placed.get(keyOf(x + dx, y + dy)); if ((dx || dy) && o && T[o.t].theme === t.theme) { const q = cellPos(x + dx, y + dy); burst(q.x, .5, q.z, 0xffe08a, 4, .7, .04, 2); } } }
@@ -256,10 +256,9 @@ function placeFx(t, x, y, ev) {
 
 /* ===== PACKS ===== */
 const RW = [0, 1, .8, .5, .25];
-function drawPack(kind, key) {
-  const price = packPrice(kind); if (S.votes < price) return null;
-  let pool = T.filter(t => !t.ult && !S.owned.has(t.id));
-  if (kind === 'cat') pool = pool.filter(t => t.cat === key); else if (kind === 'theme') pool = pool.filter(t => t.theme === key);
+function drawPack(cat) {
+  const price = packPrice(); if (S.votes < price) return null;
+  let pool = T.filter(t => !t.ult && !S.owned.has(t.id) && t.cat === cat);
   if (!pool.length) return null;
   S.votes -= price; S.packs++;
   const out = [];
@@ -304,7 +303,7 @@ function missionLevel() {
 function archive(m, status, lv) { S.archive.unshift({ id: m.id, name: m.name, job: m.job, hue: m.hue, sub: m.sub, theme: m.theme, tile: m.tile, status, lv: lv || 0, bonus: m.bonus, at: Math.floor(S.time) }); S.archive = S.archive.slice(0, 200); }
 function welcome() {
   const m = S.mission, { lv, at } = missionLevel(); if (!m || !lv) return;
-  const votes = Math.ceil((6 + Math.sqrt(pop()) * .8) * [1, 2, 4][lv - 1] * (1 + agg.pop)), money = Math.max(200 * lv, income() * [40, 90, 200][lv - 1]);
+  const votes = Math.ceil((6 + Math.sqrt(pop()) * .8) * [1, 2, 4][lv - 1] * (1 + agg.pop)), money = Math.round(Math.max(60 * lv, avgRev() * [2, 4, 8][lv - 1]));
   S.votes += votes; S.money = Math.min(Math.max(S.money, tot.capM), S.money + money);
   S.residents.push({ id: m.id, name: m.name, job: m.job, hue: m.hue, bonus: m.bonus, lv, x: at.x, y: at.y, ready: now() + 20 });
   archive(m, 'ok', lv); S.mission = null; S.nextMission = now() + 270 + Math.random() * 60;
@@ -331,7 +330,7 @@ function clickResident(r) {
   if (b.id === 'tour') S.buffs.push({ id: 'tour', until: now() + [40, 55, 75][L - 1], mult: [1.5, 2, 3][L - 1], by: r.name });
   else if (b.id === 'chan') S.buffs.push({ id: 'chan', until: now() + 60, mult: 1 - [.2, .35, .5][L - 1], by: r.name });
   else if (b.id === 'spot') { const v = Math.ceil((4 + pop() * .03) * L * (1 + agg.pop)); S.votes += v; toast(`Coup de projecteur : +${fmt(v)} votes`, 'gold'); }
-  else { const g = Math.max(150 * L, income() * [60, 120, 240][L - 1]); S.money = Math.min(Math.max(S.money, tot.capM), S.money + g); toast(`Bourse du quartier : +${fmt(g)} $`, 'gold'); }
+  else { const g = Math.round(Math.max(60 * L, avgRev() * [3, 6, 12][L - 1])); S.money = Math.min(Math.max(S.money, tot.capM), S.money + g); toast(`Bourse du quartier : +${fmt(g)} $`, 'gold'); }
   if (b.id === 'tour' || b.id === 'chan') toast(`${r.name} : ${b.n} !`, 'gold');
   r.ready = now() + 240; sfx('win'); rebuildResidents(); uiDirty = true;
   { const q = cellPos(r.x, r.y); burst(q.x, .6, q.z, 0xffc94a, 22, 1.8, .06); ring(q.x, q.z, 0xffc94a, 1.4); pillar(q.x, q.z, 0xffc94a); floatText(q.x, 1, q.z, b.n, 'gold'); }
@@ -399,7 +398,7 @@ addEventListener('keydown', e => {
   keys[e.code] = true;
   if (e.code === 'Space') { e.preventDefault(); if (document.activeElement) document.activeElement.blur(); toggleMenu(); }
   else if (e.code === 'Tab') { e.preventDefault(); S.destroy = !S.destroy; uiDirty = true; sfx('click'); }
-  else if (e.code === 'Escape') closeMenu();
+  else if (e.code === 'Escape') { if (menuOpen()) closeMenu(); else toggleTray(); }
   else if (e.key.toLowerCase() === 'q') { S.rot = (S.rot + 3) % 4; }
   else if (e.key.toLowerCase() === 'e') { S.rot = (S.rot + 1) % 4; }
   else if (/^Digit[1-8]$/.test(e.code) && !menuOpen()) { const id = S.recent[+e.code[5] - 1]; if (id != null) { selectTile(id); } }
@@ -411,7 +410,12 @@ function selectTile(id) { S.sel = id; S.destroy = false; S.rot = 0; uiDirty = tr
 let lastPrestige = '', uiDirty = true, last = performance.now(), hudT = 0, saveT = 0, missT = 0;
 function tick(dt) {
   S.time += dt;
-  const inc = income(); if (S.money < tot.capM) S.money = Math.min(tot.capM, S.money + inc * dt);
+  S.money = Math.min(S.money, Math.max(tot.capM, 0));
+  /* filet de sécurité : sans argent pour poser une tuile qui rapporte, la ville reçoit une subvention (au plus toutes les 90 s) */
+  if (now() >= S.subsidyAt && Math.floor(now() * 2) % 4 === 0) {
+    let mn = Infinity; S.owned.forEach(i => { const t = T[i]; if (t.money > 0) mn = Math.min(mn, costOf(t)); });
+    if (mn < Infinity && S.money < mn) { S.money = Math.min(tot.capM, mn); S.subsidyAt = now() + 90; toast(`Subvention municipale : +${fmt(mn)} $ pour relancer la ville.`, 'gold'); sfx('win'); }
+  }
   settlePop();
   if (lastPrestige && prestige.n !== lastPrestige) { if (prestige.at > 0 && PRESTIGE.findIndex(p => p.n === prestige.n) > PRESTIGE.findIndex(p => p.n === lastPrestige)) { banner(prestige.n, `Loisirs ×${prestige.m}`, 'level'); sfx('win'); } }
   lastPrestige = prestige.n;
@@ -455,7 +459,7 @@ function boot() {
   const had = load(); recalc(); lastPrestige = prestige.n;
   placed.forEach(r => addObj(r, false)); rebuildResidents();
   resize(); updateCamera(); setGhost(); buildUI();
-  if (!had) { openMenu('help'); }
+  if (!had) { openTray(); toast('Choisissez une tuile, puis clic gauche pour construire.', 'info'); }
   requestAnimationFrame(frame);
   addEventListener('beforeunload', save);
 }
